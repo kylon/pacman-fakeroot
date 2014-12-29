@@ -23,7 +23,6 @@ options=('strip' 'debug')
 
 build() {
 cd ..
- make clean
  ./configure --prefix=/usr --sysconfdir=/etc \
     --localstatedir=/var --enable-doc \
     --with-scriptlet-shell=/usr/bin/bash \
