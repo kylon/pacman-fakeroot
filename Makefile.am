@@ -23,8 +23,8 @@ dist_pkgdata_DATA = \
 	proto/PKGBUILD-vcs.proto \
 	proto/proto.install
 
-$(top_srcdir)/test/pacman/tests/TESTS: $(wildcard test/pacman/tests/*.py*)
-	@printf "TESTS += %s\n" $^ | sed -e "s/\.py\.in/.py/" | LC_ALL=C sort -u > "$@"
+$(top_srcdir)/test/pacman/tests/TESTS: $(wildcard test/pacman/tests/*.py)
+	@printf "TESTS += %s\n" $^ | LC_ALL=C sort -u > "$@"
 
 TESTS =  test/scripts/parseopts_test.sh \
 				 test/scripts/human_to_size_test.sh \
@@ -62,6 +62,11 @@ update-po:
 	$(MAKE) -C scripts/po update-po
 	$(MAKE) -C src/pacman/po update-po
 
-.PHONY: update-po
+update-copyright:
+	for file in $(shell sh -c 'git grep -l "Copyright .* Pacman Development" | grep -v "\.po"'); do \
+	  sed -i -e "/Copyright (/s/-$(OLD)/-$(NEW)/" -e "/Copyright (/s/ $(OLD)/ $(OLD)-$(NEW)/" "$$file"; \
+	done
+
+.PHONY: update-po update-copyright
 
 # vim:set noet:

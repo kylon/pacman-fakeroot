@@ -3,7 +3,7 @@
 #   makepkg - make packages compatible for use with pacman
 #   @configure_input@
 #
-#   Copyright (c) 2006-2014 Pacman Development Team <pacman-dev@archlinux.org>
+#   Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
 #   Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
 #   Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
 #   Copyright (c) 2006 by Miklos Vajna <vmiklos@frugalware.org>
@@ -48,13 +48,11 @@ declare -r startdir="$PWD"
 
 LIBRARY=${LIBRARY:-'@libmakepkgdir@'}
 
-packaging_options=('strip' 'docs' 'libtool' 'staticlibs' 'emptydirs' 'zipman'
-                   'purge' 'upx' 'debug')
-other_options=('ccache' 'distcc' 'buildflags' 'makeflags')
+build_options=('ccache' 'distcc' 'buildflags' 'makeflags')
 splitpkg_overrides=('pkgdesc' 'arch' 'url' 'license' 'groups' 'depends'
                     'optdepends' 'provides' 'conflicts' 'replaces' 'backup'
                     'options' 'install' 'changelog')
-readonly -a packaging_options other_options splitpkg_overrides
+readonly -a build_options splitpkg_overrides
 
 known_hash_algos=('md5' 'sha1' 'sha224' 'sha256' 'sha384' 'sha512')
 
@@ -101,31 +99,10 @@ shopt -s extglob
 
 ### SUBROUTINES ###
 
-plain() {
-	local mesg=$1; shift
-	printf "${BOLD}    ${mesg}${ALL_OFF}\n" "$@" >&2
-}
-
-msg() {
-	local mesg=$1; shift
-	printf "${GREEN}==>${ALL_OFF}${BOLD} ${mesg}${ALL_OFF}\n" "$@" >&2
-}
-
-msg2() {
-	local mesg=$1; shift
-	printf "${BLUE}  ->${ALL_OFF}${BOLD} ${mesg}${ALL_OFF}\n" "$@" >&2
-}
-
-warning() {
-	local mesg=$1; shift
-	printf "${YELLOW}==> $(gettext "WARNING:")${ALL_OFF}${BOLD} ${mesg}${ALL_OFF}\n" "$@" >&2
-}
-
-error() {
-	local mesg=$1; shift
-	printf "${RED}==> $(gettext "ERROR:")${ALL_OFF}${BOLD} ${mesg}${ALL_OFF}\n" "$@" >&2
-}
-
+# Import libmakepkg
+for lib in "$LIBRARY"/*.sh; do
+	source "$lib"
+done
 
 ##
 # Special exit call for traps, Don't print any error messages when inside,
@@ -472,23 +449,6 @@ download_bzr() {
 			exit 1
 		fi
 	elif (( ! HOLDVER )); then
-		# Make sure we are fetching the right repo
-		local distant_url="$(bzr info $url 2> /dev/null | sed -n '/branch root/{s/  branch root: //p;q;}')"
-		local local_url="$(bzr config parent_location -d $dir)"
-		if [[ -n $distant_url ]]; then
-			if [[ $distant_url != "$local_url" ]]; then
-				error "$(gettext "%s is not a branch of %s")" "$dir" "$url"
-				plain "$(gettext "Aborting...")"
-				exit 1
-			fi
-		else
-			if [[ $url != "$local_url" ]] ; then
-				error "$(gettext "%s is not a branch of %s")" "$dir" "$url"
-				error "$(gettext "The local URL is %s")" "$local_url"
-				plain "$(gettext "Aborting...")"
-				exit 1
-			fi
-		fi
 		msg2 "$(gettext "Pulling %s ...")" "${displaylocation}"
 		cd_safe "$dir"
 		if ! bzr pull "$url"; then
@@ -606,7 +566,7 @@ extract_git() {
 			exit 1
 		fi
 		cd_safe "$srcdir"
-	elif ! git clone "$dir"; then
+	elif ! git clone "$dir" "${dir##*/}"; then
 		error "$(gettext "Failure while creating working copy of %s %s repo")" "${repo}" "git"
 		plain "$(gettext "Aborting...")"
 		exit 1
@@ -929,92 +889,6 @@ get_pkg_arch() {
 		fi
 	fi
 }
-
-##
-# Checks to see if options are present in makepkg.conf or PKGBUILD;
-# PKGBUILD options always take precedence.
-#
-#  usage : check_option( $option, $expected_val )
-# return : 0   - matches expected
-#          1   - does not match expected
-#          127 - not found
-##
-check_option() {
-	in_opt_array "$1" ${options[@]}
-	case $? in
-		0) # assert enabled
-			[[ $2 = y ]]
-			return ;;
-		1) # assert disabled
-			[[ $2 = n ]]
-			return
-	esac
-
-	# fall back to makepkg.conf options
-	in_opt_array "$1" ${OPTIONS[@]}
-	case $? in
-		0) # assert enabled
-			[[ $2 = y ]]
-			return ;;
-		1) # assert disabled
-			[[ $2 = n ]]
-			return
-	esac
-
-	# not found
-	return 127
-}
-
-
-##
-# Check if option is present in BUILDENV
-#
-#  usage : check_buildenv( $option, $expected_val )
-# return : 0   - matches expected
-#          1   - does not match expected
-#          127 - not found
-##
-check_buildenv() {
-	in_opt_array "$1" ${BUILDENV[@]}
-	case $? in
-		0) # assert enabled
-			[[ $2 = "y" ]]
-			return ;;
-		1) # assert disabled
-			[[ $2 = "n" ]]
-			return ;;
-	esac
-
-	# not found
-	return 127
-}
-
-
-##
-#  usage : in_opt_array( $needle, $haystack )
-# return : 0   - enabled
-#          1   - disabled
-#          127 - not found
-##
-in_opt_array() {
-	local needle=$1; shift
-
-	local i opt
-	for (( i = $#; i > 0; i-- )); do
-		opt=${!i}
-		if [[ $opt = "$needle" ]]; then
-			# enabled
-			return 0
-		elif [[ $opt = "!$needle" ]]; then
-			# disabled
-			return 1
-		fi
-	done
-
-	# not found
-	return 127
-}
-
 
 ##
 #  usage : in_array( $needle, $haystack )
@@ -1788,137 +1662,6 @@ strip_file() {
 	fi
 
 	strip $@ "$binary"
-}
-
-tidy_install() {
-	cd_safe "$pkgdir"
-	msg "$(gettext "Tidying install...")"
-
-	if check_option "docs" "n" && [[ -n ${DOC_DIRS[*]} ]]; then
-		msg2 "$(gettext "Removing doc files...")"
-		rm -rf -- ${DOC_DIRS[@]}
-	fi
-
-	if check_option "purge" "y" && [[ -n ${PURGE_TARGETS[*]} ]]; then
-		msg2 "$(gettext "Purging unwanted files...")"
-		local pt
-		for pt in "${PURGE_TARGETS[@]}"; do
-			if [[ ${pt} = "${pt//\/}" ]]; then
-				find . ! -type d -name "${pt}" -exec rm -f -- '{}' +
-			else
-				rm -f ${pt}
-			fi
-		done
-	fi
-
-	if check_option "libtool" "n"; then
-		msg2 "$(gettext "Removing "%s" files...")" "libtool"
-		find . ! -type d -name "*.la" -exec rm -f -- '{}' +
-	fi
-
-	if check_option "staticlibs" "n"; then
-		msg2 "$(gettext "Removing static library files...")"
-		local l
-		while read -rd '' l; do
-			if [[ -f "${l%.a}.so" ]]; then
-				rm "$l"
-			fi
-		done < <(find . ! -type d -name "*.a" -print0)
-	fi
-
-	if check_option "emptydirs" "n"; then
-		msg2 "$(gettext "Removing empty directories...")"
-		find . -depth -type d -exec rmdir '{}' + 2>/dev/null
-	fi
-
-	# check existence of backup files
-	local file
-	for file in "${backup[@]}"; do
-		if [[ ! -f $file && ! -h $file ]]; then
-			warning "$(gettext "%s entry file not in package : %s")" "backup" "$file"
-		fi
-	done
-
-	# check for references to the build and package directory
-	if find "${pkgdir}" -type f -print0 | xargs -0 grep -q -I "${srcdir}" ; then
-		warning "$(gettext "Package contains reference to %s")" "\$srcdir"
-	fi
-	if find "${pkgdir}" -type f -print0 | xargs -0 grep -q -I "${pkgdirbase}" ; then
-		warning "$(gettext "Package contains reference to %s")" "\$pkgdir"
-	fi
-
-	if check_option "zipman" "y" && [[ -n ${MAN_DIRS[*]} ]]; then
-		msg2 "$(gettext "Compressing man and info pages...")"
-		local file files inode link
-		while read -rd ' ' inode; do
-			read file
-			find ${MAN_DIRS[@]} -type l 2>/dev/null |
-			while read -r link ; do
-				if [[ "${file}" -ef "${link}" ]] ; then
-					rm -f "$link" "${link}.gz"
-					if [[ ${file%/*} = ${link%/*} ]]; then
-						ln -s -- "${file##*/}.gz" "${link}.gz"
-					else
-						ln -s -- "/${file}.gz" "${link}.gz"
-					fi
-				fi
-			done
-			if [[ -z ${files[$inode]} ]]; then
-				files[$inode]=$file
-				gzip -9 -n -f "$file"
-			else
-				rm -f "$file"
-				ln "${files[$inode]}.gz" "${file}.gz"
-				chmod 644 "${file}.gz"
-			fi
-		done < <(find ${MAN_DIRS[@]} -type f \! -name "*.gz" \! -name "*.bz2" \
-			-exec @INODECMD@ '{}' + 2>/dev/null)
-	fi
-
-	if check_option "strip" "y"; then
-		msg2 "$(gettext "Stripping unneeded symbols from binaries and libraries...")"
-		# make sure library stripping variables are defined to prevent excess stripping
-		[[ -z ${STRIP_SHARED+x} ]] && STRIP_SHARED="-S"
-		[[ -z ${STRIP_STATIC+x} ]] && STRIP_STATIC="-S"
-
-		if check_option "debug" "y"; then
-			dbgdir="$pkgdir-@DEBUGSUFFIX@/usr/lib/debug"
-			mkdir -p "$dbgdir"
-		fi
-
-		local binary strip_flags
-		find . -type f -perm -u+w -print0 2>/dev/null | while read -rd '' binary ; do
-			case "$(file -bi "$binary")" in
-				*application/x-sharedlib*)  # Libraries (.so)
-					strip_flags="$STRIP_SHARED";;
-				*application/x-archive*)    # Libraries (.a)
-					strip_flags="$STRIP_STATIC";;
-				*application/x-object*)
-					case "$binary" in
-						*.ko)                   # Kernel module
-							strip_flags="$STRIP_SHARED";;
-						*)
-							continue;;
-					esac;;
-				*application/x-executable*) # Binaries
-					strip_flags="$STRIP_BINARIES";;
-				*)
-					continue ;;
-			esac
-			strip_file "$binary" ${strip_flags}
-		done
-	fi
-
-	if check_option "upx" "y"; then
-		msg2 "$(gettext "Compressing binaries with %s...")" "UPX"
-		local binary
-		find . -type f -perm -u+w 2>/dev/null | while read -r binary ; do
-			if [[ $(file -bi "$binary") = *'application/x-executable'* ]]; then
-				upx $UPXFLAGS "$binary" &>/dev/null ||
-						warning "$(gettext "Could not compress binary : %s")" "${binary/$pkgdir\//}"
-			fi
-		done
-	fi
 }
 
 find_libdepends() {
@@ -2773,7 +2516,7 @@ lint_options() {
 
 	for i in "${options_list[@]}"; do
 		# check if option matches a known option or its inverse
-		for kopt in "${packaging_options[@]}" "${other_options[@]}"; do
+		for kopt in "${packaging_options[@]}" "${build_options[@]}"; do
 			if [[ $i = "$kopt" || $i = "!$kopt" ]]; then
 				# continue to the next $i
 				continue 2
@@ -3010,6 +2753,14 @@ check_software() {
 		fi
 	fi
 
+	# optipng - PNG image optimization
+	if check_option "optipng" "y"; then
+		if ! type -p optipng >/dev/null; then
+			error "$(gettext "Cannot find the %s binary required for optimizing PNG images.")" "optipng"
+			ret=1
+		fi
+	fi
+
 	# distcc - compilation with distcc
 	if check_buildenv "distcc" "y" && ! check_option "distcc" "n"; then
 		if ! type -p distcc >/dev/null; then
@@ -3125,6 +2876,7 @@ run_split_packaging() {
 		backup_package_variables
 		run_package $pkgname
 		tidy_install
+		lint_package
 		create_package
 		create_debug_package
 		restore_package_variables
@@ -3214,7 +2966,7 @@ usage() {
 version() {
 	printf "makepkg (pacman) %s\n" "$makepkg_version"
 	printf -- "$(gettext "\
-Copyright (c) 2006-2014 Pacman Development Team <pacman-dev@archlinux.org>.\n\
+Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>.\n\
 Copyright (C) 2002-2006 Judd Vinet <jvinet@zeroflux.org>.\n\n\
 This is free software; see the source for copying conditions.\n\
 There is NO WARRANTY, to the extent permitted by law.\n")"
@@ -3597,6 +3349,7 @@ if (( INFAKEROOT )); then
 			run_package
 		fi
 		tidy_install
+		lint_package
 		create_package
 		create_debug_package
 	else
