@@ -90,7 +90,7 @@ int SYMEXPORT alpm_add_pkg(alpm_handle_t *handle, alpm_pkg_t *pkg)
 				_alpm_log(handle, ALPM_LOG_WARNING, _("%s-%s is up to date -- reinstalling\n"),
 						localpkgname, localpkgver);
 			}
-		} else if(cmp < 0) {
+		} else if(cmp < 0 && !(trans->flags & ALPM_TRANS_FLAG_DOWNLOADONLY)) {
 			/* local version is newer */
 			_alpm_log(handle, ALPM_LOG_WARNING, _("downgrading package %s (%s => %s)\n"),
 					localpkgname, localpkgver, pkgver);
@@ -148,7 +148,7 @@ static int extract_db_file(alpm_handle_t *handle, struct archive *archive,
 		struct archive_entry *entry, alpm_pkg_t *newpkg, const char *entryname)
 {
 	char filename[PATH_MAX]; /* the actual file we're extracting */
-	const char *dbfile;
+	const char *dbfile = NULL;
 	if(strcmp(entryname, ".INSTALL") == 0) {
 		dbfile = "install";
 	} else if(strcmp(entryname, ".CHANGELOG") == 0) {

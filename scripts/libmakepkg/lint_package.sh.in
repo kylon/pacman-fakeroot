@@ -18,12 +18,13 @@
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-[ -n "$LIBMAKEPKG_LINT_PACKAGE_SH" ] && return
+[[ -n "$LIBMAKEPKG_LINT_PACKAGE_SH" ]] && return
 LIBMAKEPKG_LINT_PACKAGE_SH=1
 
 LIBRARY=${LIBRARY:-'@libmakepkgdir@'}
 
 source "$LIBRARY/util/message.sh"
+source "$LIBRARY/util/util.sh"
 
 
 declare -a lint_package_functions

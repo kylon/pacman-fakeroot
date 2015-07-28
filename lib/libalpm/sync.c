@@ -410,7 +410,7 @@ int _alpm_sync_prepare(alpm_handle_t *handle, alpm_list_t **data)
 
 	if(!(trans->flags & ALPM_TRANS_FLAG_NODEPS)) {
 		alpm_list_t *resolved = NULL;
-		alpm_list_t *remove = NULL;
+		alpm_list_t *remove = alpm_list_copy(trans->remove);
 		alpm_list_t *localpkgs;
 
 		/* Build up list by repeatedly resolving each transaction package */
@@ -1212,6 +1212,7 @@ static int load_packages(alpm_handle_t *handle, alpm_list_t **data,
 	EVENT(handle, &event);
 
 	for(i = handle->trans->add; i; i = i->next, current++) {
+		int error = 0;
 		alpm_pkg_t *spkg = i->data;
 		char *filepath;
 		int percent = (int)(((double)current_bytes / total_bytes) * 100);
@@ -1232,6 +1233,23 @@ static int load_packages(alpm_handle_t *handle, alpm_list_t **data,
 				spkg->name);
 		alpm_pkg_t *pkgfile =_alpm_pkg_load_internal(handle, filepath, 1);
 		if(!pkgfile) {
+			_alpm_log(handle, ALPM_LOG_DEBUG, "failed to load pkgfile internal\n");
+			error = 1;
+		} else {
+			if(strcmp(spkg->name, pkgfile->name) != 0) {
+				_alpm_log(handle, ALPM_LOG_DEBUG,
+						"internal package name mismatch, expected: '%s', actual: '%s'\n",
+						spkg->name, pkgfile->name);
+				error = 1;
+			}
+			if(strcmp(spkg->version, pkgfile->version) != 0) {
+				_alpm_log(handle, ALPM_LOG_DEBUG,
+						"internal package version mismatch, expected: '%s', actual: '%s'\n",
+						spkg->version, pkgfile->version);
+				error = 1;
+			}
+		}
+		if(error != 0) {
 			errors++;
 			*data = alpm_list_add(*data, strdup(spkg->filename));
 			free(filepath);

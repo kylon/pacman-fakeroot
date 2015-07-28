@@ -57,11 +57,12 @@ static void deplist_display(const char *title,
 static void optdeplist_display(alpm_pkg_t *pkg, unsigned short cols)
 {
 	alpm_list_t *i, *text = NULL;
+	alpm_db_t *localdb = alpm_get_localdb(config->handle);
 	for(i = alpm_pkg_get_optdepends(pkg); i; i = alpm_list_next(i)) {
 		alpm_depend_t *optdep = i->data;
 		char *depstring = alpm_dep_compute_string(optdep);
 		if(alpm_pkg_get_origin(pkg) == ALPM_PKG_FROM_LOCALDB) {
-			if(alpm_db_get_pkg(alpm_get_localdb(config->handle), optdep->name)) {
+			if(alpm_find_satisfier(alpm_db_get_pkgcache(localdb), optdep->name)) {
 				const char *installed = _(" [installed]");
 				depstring = realloc(depstring, strlen(depstring) + strlen(installed) + 1);
 				strcpy(depstring + strlen(depstring), installed);
@@ -201,6 +202,7 @@ void dump_pkg_full(alpm_pkg_t *pkg, int extra)
 			alpm_decode_signature(base64_sig, &decoded_sigdata, &data_len);
 			alpm_extract_keyid(config->handle, alpm_pkg_get_name(pkg),
 					decoded_sigdata, data_len, &keys);
+			free(decoded_sigdata);
 		} else {
 			keys = alpm_list_add(keys, _("None"));
 		}
@@ -208,6 +210,10 @@ void dump_pkg_full(alpm_pkg_t *pkg, int extra)
 		string_display(_("MD5 Sum        :"), alpm_pkg_get_md5sum(pkg), cols);
 		string_display(_("SHA-256 Sum    :"), alpm_pkg_get_sha256sum(pkg), cols);
 		list_display(_("Signatures     :"), keys, cols);
+
+		if(base64_sig) {
+			FREELIST(keys);
+		}
 	} else {
 		list_display(_("Validated By   :"), validation, cols);
 	}

@@ -27,7 +27,6 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <time.h>
-#include <syslog.h>
 #include <errno.h>
 #include <limits.h>
 #include <sys/wait.h>
@@ -446,49 +445,6 @@ ssize_t _alpm_files_in_directory(alpm_handle_t *handle, const char *path,
 	return files;
 }
 
-/** Write formatted message to log.
- * @param handle the context handle
- * @param format formatted string to write out
- * @param args formatting arguments
- * @return 0 or number of characters written on success, vfprintf return value
- * on error
- */
-int _alpm_logaction(alpm_handle_t *handle, const char *prefix,
-		const char *fmt, va_list args)
-{
-	int ret = 0;
-
-	if(!(prefix && *prefix)) {
-		prefix = "UNKNOWN";
-	}
-
-	if(handle->usesyslog) {
-		/* we can't use a va_list more than once, so we need to copy it
-		 * so we can use the original when calling vfprintf below. */
-		va_list args_syslog;
-		va_copy(args_syslog, args);
-		vsyslog(LOG_WARNING, fmt, args_syslog);
-		va_end(args_syslog);
-	}
-
-	if(handle->logstream) {
-		time_t t;
-		struct tm *tm;
-
-		t = time(NULL);
-		tm = localtime(&t);
-
-		/* Use ISO-8601 date format */
-		fprintf(handle->logstream, "[%04d-%02d-%02d %02d:%02d] [%s] ",
-						tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-						tm->tm_hour, tm->tm_min, prefix);
-		ret = vfprintf(handle->logstream, fmt, args);
-		fflush(handle->logstream);
-	}
-
-	return ret;
-}
-
 /** Execute a command with arguments in a chroot.
  * @param handle the context handle
  * @param cmd command to execute
@@ -536,6 +492,7 @@ int _alpm_run_chroot(alpm_handle_t *handle, const char *cmd, char *const argv[])
 
 	if(pid == 0) {
 		/* this code runs for the child only (the actual chroot/exec) */
+		close(0);
 		close(1);
 		close(2);
 		while(dup2(pipefd[1], 1) == -1 && errno == EINTR);

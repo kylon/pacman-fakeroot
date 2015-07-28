@@ -64,11 +64,6 @@ below).
 	software release and incremented for intermediate PKGBUILD updates. The
 	variable is not allowed to contain hyphens.
 
-*pkgdesc*::
-	This should be a brief description of the package and its functionality.
-	Try to keep the description to one line of text and to not use the package's
-	name.
-
 *epoch*::
 	Used to force the package to be seen as newer than any previous versions
 	with a lower epoch, even if the version number would normally not trigger
@@ -77,6 +72,11 @@ below).
 	numbering scheme of a package changes (or is alphanumeric), breaking normal
 	version comparison logic. See linkman:pacman[8] for more information on
 	version comparisons.
+
+*pkgdesc*::
+	This should be a brief description of the package and its functionality.
+	Try to keep the description to one line of text and to not use the package's
+	name.
 
 *url*::
 	This field contains a URL that is associated with the software being
@@ -368,12 +368,14 @@ the `build()` function.
 	`checkdepends` array.
 
 All of the above variables such as `$pkgname` and `$pkgver` are available for
-use in the `build()` function. In addition, makepkg defines the following
-variables for use during the build and install process:
+use in the packaging functions. In addition, makepkg defines the following
+variables:
 
 *srcdir*::
 	This contains the directory where makepkg extracts, or copies, all source
 	files.
++
+All of the packaging functions defined above are run starting inside `$srcdir`
 
 *pkgdir*::
 	This contains the directory where makepkg bundles the installed package.
@@ -405,8 +407,10 @@ An optional global directive is available when building a split package:
 *pkgbase*::
 	The name used to refer to the group of packages in the output of makepkg
 	and in the naming of source-only tarballs. If not specified, the first
-	element in the `pkgname` array is used. The variable is not allowed to
-	begin with a hyphen.
+	element in the `pkgname` array is used. Valid characters for this
+	variable are alphanumerics, and any of the following characters:
+	```@ . _ + -`''. Additionally, the variable is not allowed to start with
+	hyphens or dots.
 
 
 Install/Upgrade/Remove Scripting

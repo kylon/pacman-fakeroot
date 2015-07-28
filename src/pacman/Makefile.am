@@ -19,7 +19,8 @@ AM_CPPFLAGS = \
 	-DCACHEDIR=\"$(cachedir)\" \
 	-DLOGFILE=\"$(logfile)\"
 
-AM_CFLAGS = -pedantic -D_GNU_SOURCE $(WARNING_CFLAGS)
+AM_CFLAGS = -pedantic -D_GNU_SOURCE $(WARNING_CFLAGS) \
+	$(LIBARCHIVE_CFLAGS)
 
 if USE_GIT_VERSION
 GIT_VERSION := $(shell sh -c 'git describe --abbrev=4 --dirty | sed s/^v//')
@@ -31,6 +32,7 @@ pacman_SOURCES = \
 	conf.h conf.c \
 	database.c \
 	deptest.c \
+	files.c \
 	ini.h ini.c \
 	package.h package.c \
 	pacman.h pacman.c \

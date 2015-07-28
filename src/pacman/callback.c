@@ -99,7 +99,7 @@ static void fill_progress(const int bar_percent, const int disp_percent,
 		const int proglen)
 {
 	/* 8 = 1 space + 1 [ + 1 ] + 5 for percent */
-	const int hashlen = proglen - 8;
+	const int hashlen = proglen > 8 ? proglen - 8 : 0;
 	const int hash = bar_percent * hashlen / 100;
 	static int lasthash = 0, mouth = 0;
 	int i;
@@ -418,8 +418,9 @@ void cb_question(alpm_question_t *question)
 				alpm_question_select_provider_t *q = &question->select_provider;
 				size_t count = alpm_list_count(q->providers);
 				char *depstring = alpm_dep_compute_string(q->depend);
-				colon_printf(_("There are %zd providers available for %s:\n"), count,
-						depstring);
+				colon_printf(_n("There is %zd provider available for %s\n",
+						"There are %zd providers available for %s:\n", count),
+						count, depstring);
 				free(depstring);
 				select_display(q->providers);
 				q->use_index = select_question(count);
@@ -579,7 +580,7 @@ void cb_progress(alpm_progress_t event, const char *pkgname, int percent,
 		int i = textlen - 3;
 		wchar_t *p = wcstr;
 		/* grab the max number of char columns we can fill */
-		while(i > 0 && wcwidth(*p) < i) {
+		while(i - wcwidth(*p) > 0) {
 			i -= wcwidth(*p);
 			p++;
 		}
@@ -749,7 +750,7 @@ void cb_dl_progress(const char *filename, off_t file_xfered, off_t file_total)
 	fname = malloc(len + 1);
 	memcpy(fname, filename, len);
 	/* strip package or DB extension for cleaner look */
-	if((p = strstr(fname, ".pkg")) || (p = strstr(fname, ".db"))) {
+	if((p = strstr(fname, ".pkg")) || (p = strstr(fname, ".db")) || (p = strstr(fname, ".files"))) {
 		/* tack on a .sig suffix for signatures */
 		if(memcmp(&filename[len - 4], ".sig", 4) == 0) {
 			memcpy(p, ".sig", 4);
