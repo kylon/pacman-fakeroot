@@ -5,7 +5,7 @@
 
 pkgname=pacman
 pkgver=4.2.1
-pkgrel=1
+pkgrel=2
 pkgdesc="A library-based package manager with dependency support"
 arch=('i686' 'x86_64')
 url="http://www.archlinux.org/pacman/"
@@ -43,7 +43,7 @@ cd ..
 
   # install Arch specific stuff
   install -dm755 "$pkgdir/etc"
-  install -m644 "core-config/core-$CARCH/pacman.conf.$CARCH" "$pkgdir/etc/pacman.conf"
+  install -m644 "pkg-config/pacman.conf.$CARCH" "$pkgdir/etc/pacman.conf"
 
   case $CARCH in
     i686)
@@ -59,7 +59,7 @@ cd ..
   esac
 
   # set things correctly in the default conf file
-  install -m644 "core-config/core-$CARCH/makepkg.conf" "$pkgdir/etc"
+  install -m644 "pkg-config/makepkg.conf" "$pkgdir/etc"
   sed -i "$pkgdir/etc/makepkg.conf" \
     -e "s|@CARCH[@]|$mycarch|g" \
     -e "s|@CHOST[@]|$mychost|g" \
