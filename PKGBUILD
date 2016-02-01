@@ -4,14 +4,14 @@
 # Maintainer: Dave Reisner <dreisner@archlinux.org>
 
 pkgname=pacman
-pkgver=4.2.1
-pkgrel=4
+pkgver=5.0.0
+pkgrel=1
 pkgdesc="A library-based package manager with dependency support"
 arch=('i686' 'x86_64')
 url="http://www.archlinux.org/pacman/"
 license=('GPL')
 groups=('base' 'base-devel')
-depends=('bash' 'glibc' 'libarchive>=3.1.2' 'curl>=7.39.0'
+depends=('bash' 'glibc' 'libarchive' 'curl'
          'gpgme' 'pacman-mirrorlist' 'archlinux-keyring')
 makedepends=('asciidoc')   # roundup patch alters docs
 checkdepends=('python2' 'fakechroot')
@@ -28,8 +28,8 @@ cd ..
     --localstatedir=/var --enable-doc \
     --with-scriptlet-shell=/usr/bin/bash \
     --with-ldconfig=/usr/bin/ldconfig
-  make
-  make -C contrib
+  make V=1
+  make -C contrib 
 }
 
 check() {
@@ -76,3 +76,4 @@ cd ..
 
   install -Dm644 contrib/PKGBUILD.vim "$pkgdir/usr/share/vim/vimfiles/syntax/PKGBUILD.vim"
 }
+
