@@ -2,7 +2,7 @@
 #
 #   util.sh - utility functions for pkgbuild linting.
 #
-#   Copyright (c) 2014-2015 Pacman Development Team <pacman-dev@archlinux.org>
+#   Copyright (c) 2014-2016 Pacman Development Team <pacman-dev@archlinux.org>
 #
 #   This program is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ source "$LIBRARY/util/message.sh"
 
 
 check_files_exist() {
-	local kind=$1 files=("${@:2}") file ret
+	local kind=$1 files=("${@:2}") file ret=0
 
 	for file in "${files[@]}"; do
 		if [[ $file && ! -f $file ]]; then

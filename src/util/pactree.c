@@ -1,7 +1,7 @@
 /*
  *  pactree.c - a simple dependency tree viewer
  *
- *  Copyright (c) 2010-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2010-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -122,42 +122,6 @@ int unique = 0;
 int searchsyncs = 0;
 const char *dbpath = DBPATH;
 const char *configfile = CONFFILE;
-
-static size_t strtrim(char *str)
-{
-	char *end, *pch = str;
-
-	if(str == NULL || *str == '\0') {
-		/* string is empty, so we're done. */
-		return 0;
-	}
-
-	while(isspace((unsigned char)*pch)) {
-		pch++;
-	}
-	if(pch != str) {
-		size_t len = strlen(pch);
-		if(len) {
-			memmove(str, pch, len + 1);
-			pch = str;
-		} else {
-			*str = '\0';
-		}
-	}
-
-	/* check if there wasn't anything but whitespace in the string. */
-	if(*str == '\0') {
-		return 0;
-	}
-
-	end = (str + strlen(str) - 1);
-	while(isspace((unsigned char)*end)) {
-		end--;
-	}
-	*++end = '\0';
-
-	return end - pch;
-}
 
 static int register_syncs(void)
 {

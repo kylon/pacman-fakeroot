@@ -1,7 +1,7 @@
 /*
  *  remove.c
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005 by Christian Hamar <krics@linuxforum.hu>
@@ -599,7 +599,7 @@ static int remove_package_files(alpm_handle_t *handle,
 		}
 	}
 
-	_alpm_log(handle, ALPM_LOG_DEBUG, "removing %zd files\n", filelist->count);
+	_alpm_log(handle, ALPM_LOG_DEBUG, "removing %zu files\n", filelist->count);
 
 	if(!newpkg) {
 		/* init progress bar, but only on true remove transactions */

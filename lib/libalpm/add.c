@@ -1,7 +1,7 @@
 /*
  *  add.c
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -112,7 +112,9 @@ static int perform_extraction(alpm_handle_t *handle, struct archive *archive,
 	int ret;
 	const int archive_flags = ARCHIVE_EXTRACT_OWNER |
 	                          ARCHIVE_EXTRACT_PERM |
-	                          ARCHIVE_EXTRACT_TIME;
+	                          ARCHIVE_EXTRACT_TIME |
+	                          ARCHIVE_EXTRACT_UNLINK |
+	                          ARCHIVE_EXTRACT_SECURE_SYMLINKS;
 
 	archive_entry_set_pathname(entry, filename);
 
@@ -299,13 +301,6 @@ static int extract_single_file(alpm_handle_t *handle, struct archive *archive,
 			return 1;
 		}
 		strcpy(filename + filename_len, ".pacnew");
-	}
-
-	if(handle->trans->flags & ALPM_TRANS_FLAG_FORCE) {
-		/* if FORCE was used, unlink() each file (whether it's there
-		 * or not) before extracting. This prevents the old "Text file busy"
-		 * error that crops up if forcing a glibc or pacman upgrade. */
-		unlink(filename);
 	}
 
 	_alpm_log(handle, ALPM_LOG_DEBUG, "extracting %s\n", filename);

@@ -1,7 +1,7 @@
 /*
  *  sync.c
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -228,7 +228,7 @@ static int sync_cleancache(int level)
 				};
 				size_t j;
 
-				for(j = 0; j < sizeof(glob_skips) / sizeof(glob_skips[0]); j++) {
+				for(j = 0; j < ARRAYSIZE(glob_skips); j++) {
 					if(fnmatch(glob_skips[j], ent->d_name, 0) == 0) {
 						delete = 0;
 						break;
@@ -707,6 +707,26 @@ static int sync_trans(alpm_list_t *targets)
 	return sync_prepare_execute();
 }
 
+static void print_broken_dep(alpm_depmissing_t *miss)
+{
+	char *depstring = alpm_dep_compute_string(miss->depend);
+	alpm_list_t *trans_add = alpm_trans_get_add(config->handle);
+	alpm_pkg_t *pkg;
+	if(miss->causingpkg == NULL) {
+		/* package being installed/upgraded has unresolved dependency */
+		colon_printf(_("%s: requires %s\n"), miss->target, depstring);
+	} else if((pkg = alpm_pkg_find(trans_add, miss->causingpkg))) {
+		/* upgrading a package breaks a local dependency */
+		colon_printf(_("%s: installing %s (%s) breaks dependency '%s'\n"),
+				miss->target, miss->causingpkg, alpm_pkg_get_version(pkg), depstring);
+	} else {
+		/* removing a package breaks a local dependency */
+		colon_printf(_("%s: removing %s breaks dependency '%s'\n"),
+				miss->target, miss->causingpkg, depstring);
+	}
+	free(depstring);
+}
+
 int sync_prepare_execute(void)
 {
 	alpm_list_t *i, *packages, *data = NULL;
@@ -727,11 +747,8 @@ int sync_prepare_execute(void)
 				break;
 			case ALPM_ERR_UNSATISFIED_DEPS:
 				for(i = data; i; i = alpm_list_next(i)) {
-					alpm_depmissing_t *miss = i->data;
-					char *depstring = alpm_dep_compute_string(miss->depend);
-					colon_printf(_("%s: requires %s\n"), miss->target, depstring);
-					free(depstring);
-					alpm_depmissing_free(miss);
+					print_broken_dep(i->data);
+					alpm_depmissing_free(i->data);
 				}
 				break;
 			case ALPM_ERR_CONFLICTING_DEPS:

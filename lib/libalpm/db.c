@@ -1,7 +1,7 @@
 /*
  *  db.c
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005 by Christian Hamar <krics@linuxforum.hu>
@@ -344,6 +344,7 @@ alpm_db_t *_alpm_db_new(const char *treename, int is_local)
 
 void _alpm_db_free(alpm_db_t *db)
 {
+	ASSERT(db != NULL, return);
 	/* cleanup pkgcache */
 	_alpm_db_free_pkgcache(db);
 	/* cleanup server list */

@@ -1,5 +1,5 @@
 #  Copyright (c) 2006 by Aurelien Foret <orelien@chez.com>
-#  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+#  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -119,6 +119,12 @@ class pmrule(object):
             elif case == "EMPTY":
                 if not (os.path.isfile(filename)
                         and os.path.getsize(filename) == 0):
+                    success = 0
+            elif case == "CONTENTS":
+                try:
+                    with open(filename, 'r') as f:
+                        success = f.read() == value
+                except:
                     success = 0
             elif case == "MODIFIED":
                 for f in test.files:

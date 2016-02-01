@@ -1,7 +1,7 @@
 /*
  *  handle.h
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -82,6 +82,7 @@ struct __alpm_handle_t {
 	char *lockfile;          /* Name of the lock file */
 	char *gpgdir;            /* Directory where GnuPG files are stored */
 	alpm_list_t *cachedirs;  /* Paths to pacman cache directories */
+	alpm_list_t *hookdirs;   /* Paths to hook directories */
 
 	/* package lists */
 	alpm_list_t *noupgrade;   /* List of packages NOT to be upgraded */

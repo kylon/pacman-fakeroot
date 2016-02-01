@@ -1,7 +1,7 @@
 /*
  *  conflict.c
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2006 by David Kimpe <dnaku@frugalware.org>
@@ -68,6 +68,7 @@ error:
  */
 void SYMEXPORT alpm_conflict_free(alpm_conflict_t *conflict)
 {
+	ASSERT(conflict != NULL, return);
 	FREE(conflict->package2);
 	FREE(conflict->package1);
 	FREE(conflict);
@@ -301,6 +302,7 @@ error:
  */
 void SYMEXPORT alpm_fileconflict_free(alpm_fileconflict_t *conflict)
 {
+	ASSERT(conflict != NULL, return);
 	FREE(conflict->ctarget);
 	FREE(conflict->file);
 	FREE(conflict->target);
@@ -564,6 +566,8 @@ alpm_list_t *_alpm_db_find_fileconflicts(alpm_handle_t *handle,
 
 				/* localp2->files will be removed (target conflicts are handled by CHECK 1) */
 				if(localp2 && alpm_filelist_contains(alpm_pkg_get_files(localp2), relative_path)) {
+					size_t fslen = strlen(filestr);
+
 					/* skip removal of file, but not add. this will prevent a second
 					 * package from removing the file when it was already installed
 					 * by its new owner (whether the file is in backup array or not */
@@ -572,6 +576,19 @@ alpm_list_t *_alpm_db_find_fileconflicts(alpm_handle_t *handle,
 					_alpm_log(handle, ALPM_LOG_DEBUG,
 							"file changed packages, adding to remove skiplist\n");
 					resolved_conflict = 1;
+
+					if(filestr[fslen - 1] == '/') {
+						/* replacing a file with a directory:
+						 * go ahead and skip any files inside filestr as they will
+						 * necessarily be resolved by replacing the file with a dir
+						 * NOTE: afterward, j will point to the last file inside filestr */
+						for( ; j->next; j = j->next) {
+							const char *filestr2 = j->next->data;
+							if(strncmp(filestr, filestr2, fslen) != 0) {
+								break;
+							}
+						}
+					}
 				}
 			}
 

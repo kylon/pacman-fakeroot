@@ -1,11 +1,14 @@
 # Set of available languages.
 ar
+az_AZ
+br
 ca
 cs
 da
 de
 el
 en_GB
+eo
 es
 es_419
 fi
@@ -14,8 +17,10 @@ gl
 hr
 hu
 id
+is
 it
 ja
+ka
 kk
 ko
 lt

@@ -55,11 +55,11 @@ Options
 	installed.
 
 *-e, \--noextract*::
-	Do not extract source files or run the prepare() function (if present);
-	use whatever source already exists in the $srcdir/ directory. This is
-	handy if you want to go into $srcdir/ and manually patch or tweak code,
-	then make a package out of the result. Keep in mind that creating a
-	patch may be a better solution to allow others to use your PKGBUILD.
+	Do not extract source files; use whatever source already exists in the
+	$srcdir/ directory. This is handy if you want to go into $srcdir/ and
+	manually patch or tweak code, then make a package out of the result.
+	Keep in mind that creating a patch may be a better solution to allow
+	others to use your PKGBUILD.
 
 *\--verifysource*::
 	For each source file in the source array of PKGBUILD, download the file
@@ -103,11 +103,11 @@ Options
 	linkman:pacman[8].
 
 *-L, \--log*::
-	Enable makepkg build logging. This will use the *tee* program to send
-	output of the `build()` function to both the console and to a text file in
-	the build directory named `pkgname-pkgver-pkgrel-arch.log`. As mentioned
-	above, the build log will be localized so you may want to set your locale
-	accordingly if sharing the log output with others.
+	Enable logging. This will use the *tee* program to send the output of each
+	of the PKGBUILD functions to both the console and to a text file in the
+	build directory named `pkgbase-pkgver-pkgrel-arch-<function>.log`.
+	As mentioned above, the logs will be localized so you may want to set your
+	locale accordingly if sharing the log output with others.
 
 *-m, \--nocolor*::
 	Disable color in output messages.
@@ -155,10 +155,6 @@ Options
 	makepkg. This is useful for passing a single tarball to another program
 	such as a chroot or remote builder. It will also satisfy requirements of
 	the GPL when distributing binary packages.
-
-*\--pkg* <list>::
-	Only build listed packages from a split package. Multiple packages should
-	be comma separated in the list. This option can be specified multiple times.
 
 *\--check*::
 	Run the check() function in the PKGBUILD, overriding the setting in

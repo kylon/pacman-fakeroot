@@ -1,7 +1,7 @@
 /*
  *  conf.h
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -66,6 +66,7 @@ typedef struct __config_t {
 	char *dbpath;
 	char *logfile;
 	char *gpgdir;
+	alpm_list_t *hookdirs;
 	alpm_list_t *cachedirs;
 
 	unsigned short op_q_isfile;
@@ -89,6 +90,7 @@ typedef struct __config_t {
 	unsigned short op_s_upgrade;
 
 	unsigned short op_f_regex;
+	unsigned short op_f_machinereadable;
 
 	unsigned short group;
 	unsigned short noask;
@@ -156,6 +158,7 @@ enum {
 	OP_NOSCRIPTLET,
 	OP_ASK,
 	OP_CACHEDIR,
+	OP_HOOKDIR,
 	OP_ASDEPS,
 	OP_LOGFILE,
 	OP_IGNOREGROUP,
@@ -190,6 +193,7 @@ enum {
 	OP_RECURSIVE,
 	OP_SEARCH,
 	OP_REGEX,
+	OP_MACHINEREADABLE,
 	OP_UNREQUIRED,
 	OP_UPGRADES,
 	OP_SYSUPGRADE,

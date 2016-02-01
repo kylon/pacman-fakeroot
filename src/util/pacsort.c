@@ -1,7 +1,7 @@
 /*
  *  pacsort.c - a sort utility implementing alpm_pkg_vercmp
  *
- *  Copyright (c) 2010-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2010-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@
 #include "util-common.h"
 
 #define DELIM ' '
+#define INVALD_ESCAPE_CHAR ((char)-1)
 
 #ifndef MIN
 #define MIN(a, b)      \
@@ -104,10 +105,11 @@ static void buffer_free(struct buffer_t *buf)
 static int buffer_grow(struct buffer_t *buffer)
 {
 	size_t newsz = buffer->maxlen * 2.5;
-	buffer->mem = realloc(buffer->mem, newsz * sizeof(char));
-	if(!buffer->mem) {
+	char* new_mem = realloc(buffer->mem, newsz * sizeof(char));
+	if(!new_mem) {
 		return 1;
 	}
+	buffer->mem = new_mem;
 	buffer->maxlen = newsz;
 
 	return 0;
@@ -136,11 +138,12 @@ static struct list_t *list_new(size_t initial_size)
 static int list_grow(struct list_t *list)
 {
 	size_t newsz = list->maxcount * 2.5;
-	list->list = realloc(list->list, newsz * sizeof(char *));
-	if(!list->list) {
+	void **new_list = realloc(list->list, newsz * sizeof(char *));
+	if(!new_list) {
 		return 1;
 	}
 
+	list->list = new_list;
 	list->maxcount = newsz;
 
 	return 0;
@@ -254,7 +257,10 @@ static char *explode(struct buffer_t *buffer, struct list_t *list)
 	while((end = memchr(ptr, linedelim, &buffer->mem[buffer->len] - ptr))) {
 		*end = '\0';
 		meta = input_new(ptr, end - ptr);
-		list_add(list, meta);
+		if(meta == NULL || list_add(list, meta) != 0) {
+			input_free(meta);
+			return NULL;
+		}
 		ptr = end + 1;
 	}
 
@@ -294,6 +300,7 @@ static int splitfile(FILE *stream, struct buffer_t *buffer, struct list_t *list)
 	if(buffer->len) {
 		struct input_t *meta = input_new(buffer->mem, buffer->len + 1);
 		if(meta == NULL || list_add(list, meta) != 0) {
+			input_free(meta);
 			return 1;
 		}
 	}
@@ -379,13 +386,13 @@ static int vercmp(const void *p1, const void *p2)
 static char escape_char(const char *string)
 {
 	if(!string) {
-		return -1;
+		return INVALD_ESCAPE_CHAR;
 	}
 
 	const size_t len = strlen(string);
 
 	if(len > 2) {
-		return -1;
+		return INVALD_ESCAPE_CHAR;
 	}
 
 	if(len == 1) {
@@ -393,7 +400,7 @@ static char escape_char(const char *string)
 	}
 
 	if(*string != '\\') {
-		return -1;
+		return INVALD_ESCAPE_CHAR;
 	}
 
 	switch(string[1]) {
@@ -406,7 +413,7 @@ static char escape_char(const char *string)
 		case '0':
 			return '\0';
 		default:
-			return -1;
+			return INVALD_ESCAPE_CHAR;
 	}
 }
 
@@ -457,7 +464,7 @@ static int parse_options(int argc, char **argv)
 				break;
 			case 't':
 				opts.delim = escape_char(optarg);
-				if(opts.delim == -1) {
+				if(opts.delim == INVALD_ESCAPE_CHAR) {
 					fprintf(stderr, "error: invalid field separator -- `%s'\n", optarg);
 					return 1;
 				}
@@ -478,6 +485,7 @@ int main(int argc, char *argv[])
 	struct list_t *list;
 	struct buffer_t *buffer;
 	size_t i;
+	int ret = 0;
 
 	/* option defaults */
 	opts.order = 1;
@@ -501,7 +509,8 @@ int main(int argc, char *argv[])
 	if(optind == argc) {
 		if(splitfile(stdin, buffer, list) != 0) {
 			fprintf(stderr, "%s: memory exhausted\n", argv[0]);
-			return ENOMEM;
+			ret = ENOMEM;
+			goto cleanup;
 		}
 	} else {
 		while(optind < argc) {
@@ -509,7 +518,9 @@ int main(int argc, char *argv[])
 			if(input) {
 				if(splitfile(input, buffer, list) != 0) {
 					fprintf(stderr, "%s: memory exhausted\n", argv[0]);
-					return ENOMEM;
+					fclose(input);
+					ret = ENOMEM;
+					goto cleanup;
 				}
 				fclose(input);
 			} else {
@@ -528,10 +539,11 @@ int main(int argc, char *argv[])
 		}
 	}
 
+cleanup:
 	list_free(list, input_free);
 	buffer_free(buffer);
 
-	return 0;
+	return ret;
 }
 
 /* vim: set noet: */

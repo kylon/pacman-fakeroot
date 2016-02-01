@@ -1,7 +1,7 @@
 /*
  *  util.h
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -54,7 +54,6 @@ unsigned short getcols(void);
 void columns_cache_reset(void);
 int rmrf(const char *path);
 void indentprint(const char *str, unsigned short indent, unsigned short cols);
-size_t strtrim(char *str);
 char *strreplace(const char *str, const char *needle, const char *replace);
 void string_display(const char *title, const char *string, unsigned short cols);
 double humanize_size(off_t bytes, const char target_unit, int precision,

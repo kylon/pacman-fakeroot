@@ -41,13 +41,13 @@ AC_PREREQ(2.62)
 #   Bugfix releases:
 #     pacman_version_micro += 1
 
-m4_define([lib_current], [9])
-m4_define([lib_revision], [1])
+m4_define([lib_current], [10])
+m4_define([lib_revision], [0])
 m4_define([lib_age], [0])
 
-m4_define([pacman_version_major], [4])
-m4_define([pacman_version_minor], [2])
-m4_define([pacman_version_micro], [1])
+m4_define([pacman_version_major], [5])
+m4_define([pacman_version_minor], [0])
+m4_define([pacman_version_micro], [0])
 m4_define([pacman_version],
           [pacman_version_major.pacman_version_minor.pacman_version_micro])
 
@@ -164,6 +164,15 @@ AC_ARG_ENABLE(git-version,
 # Enable large file support if available (must be enabled before
 # testing compilation against gpgme).
 AC_SYS_LARGEFILE
+
+# Record large file flags in pkgconfig file
+if test "$enable_largefile" != no; then
+	if test "$ac_cv_sys_file_offset_bits" != 'no'; then
+		LFS_CFLAGS="-D_FILE_OFFSET_BITS=$ac_cv_sys_file_offset_bits"
+	fi
+fi
+AC_SUBST(LFS_CFLAGS)
+
 
 # Checks for programs.
 AC_PROG_AWK

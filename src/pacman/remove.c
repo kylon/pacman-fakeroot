@@ -1,7 +1,7 @@
 /*
  *  remove.c
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -122,7 +122,8 @@ int pacman_remove(alpm_list_t *targets)
 				for(i = data; i; i = alpm_list_next(i)) {
 					alpm_depmissing_t *miss = i->data;
 					char *depstring = alpm_dep_compute_string(miss->depend);
-					colon_printf(_("%s: requires %s\n"), miss->target, depstring);
+					colon_printf(_("%s: removing %s breaks dependency '%s'\n"),
+							miss->target, miss->causingpkg, depstring);
 					free(depstring);
 					alpm_depmissing_free(miss);
 				}

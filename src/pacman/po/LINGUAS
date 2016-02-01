@@ -1,5 +1,7 @@
 # Set of available languages.
 ar
+az_AZ
+br
 ca
 cs
 da
@@ -16,8 +18,10 @@ gl
 hr
 hu
 id
+is
 it
 ja
+ka
 kk
 ko
 lt
@@ -33,6 +37,7 @@ sl
 sr
 sr@latin
 sv
+th
 tr
 uk
 vi

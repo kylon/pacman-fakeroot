@@ -3,7 +3,7 @@
 #   makepkg - make packages compatible for use with pacman
 #   @configure_input@
 #
-#   Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+#   Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
 #   Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
 #   Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
 #   Copyright (c) 2006 by Miklos Vajna <vmiklos@frugalware.org>
@@ -54,7 +54,7 @@ splitpkg_overrides=('pkgdesc' 'arch' 'url' 'license' 'groups' 'depends'
                     'options' 'install' 'changelog')
 readonly -a build_options splitpkg_overrides
 
-known_hash_algos=('md5' 'sha1' 'sha224' 'sha256' 'sha384' 'sha512')
+known_hash_algos=('md5' 'sha1' 'sha224' 'sha256' 'sha384' 'sha512' 'whirlpool')
 
 # Options
 ASDEPS=0
@@ -77,7 +77,6 @@ NOBUILD=0
 NODEPS=0
 NOEXTRACT=0
 PKGFUNC=0
-PKGLIST=()
 PKGVERFUNC=0
 PREPAREFUNC=0
 REPKG=0
@@ -88,10 +87,6 @@ SIGNPKG=''
 SPLITPKG=0
 SOURCEONLY=0
 VERIFYSOURCE=0
-
-# Forces the pkgver of the current PKGBUILD. Used by the fakeroot call
-# when dealing with svn/cvs/etc PKGBUILDs.
-FORCE_VER=""
 
 PACMAN_OPTS=
 
@@ -229,6 +224,7 @@ run_pacman() {
 	else
 		cmd=("$PACMAN_PATH" "$@")
 	fi
+
 	if (( ! ASROOT )) && [[ ! $1 = -@(T|Qq) ]]; then
 		if type -p sudo >/dev/null; then
 			cmd=(sudo "${cmd[@]}")
@@ -767,10 +763,6 @@ merge_arch_attrs() {
 
 source_buildfile() {
 	source_safe "$@"
-
-	if (( !SOURCEONLY )); then
-		merge_arch_attrs
-	fi
 }
 
 run_function_safe() {
@@ -857,15 +849,23 @@ run_prepare() {
 }
 
 run_build() {
-	# use distcc if it is requested (check buildenv and PKGBUILD opts)
-	if check_buildenv "distcc" "y" && ! check_option "distcc" "n"; then
-		[[ -d /usr/lib/distcc/bin ]] && export PATH="/usr/lib/distcc/bin:$PATH"
-		export DISTCC_HOSTS
-	fi
+	local ccache=0
 
 	# use ccache if it is requested (check buildenv and PKGBUILD opts)
-	if check_buildenv "ccache" "y" && ! check_option "ccache" "n"; then
-		[[ -d /usr/lib/ccache/bin ]] && export PATH="/usr/lib/ccache/bin:$PATH"
+	if check_buildoption "ccache" "y" && [[ -d /usr/lib/ccache/bin ]]; then
+		export PATH="/usr/lib/ccache/bin:$PATH"
+		ccache=1
+	fi
+
+	# use distcc if it is requested (check buildenv and PKGBUILD opts)
+	if check_buildoption "distcc" "y"; then
+		if (( ccache )); then
+			export CCACHE_PREFIX="${CCACHE_PREFIX:+$CCACHE_PREFIX }distcc"
+			export CCACHE_BASEDIR="$srcdir"
+		elif [[ -d /usr/lib/distcc/bin ]]; then
+			export PATH="/usr/lib/distcc/bin:$PATH"
+		fi
+		export DISTCC_HOSTS
 	fi
 
 	run_function_safe "build"
@@ -1149,19 +1149,23 @@ write_pkginfo() {
 	[[ $optdepends ]]   && printf "optdepend = %s\n"   "${optdepends[@]//+([[:space:]])/ }"
 	[[ $makedepends ]]  && printf "makedepend = %s\n"  "${makedepends[@]}"
 	[[ $checkdepends ]] && printf "checkdepend = %s\n" "${checkdepends[@]}"
+}
 
-	local it
-	for it in "${packaging_options[@]}"; do
-		check_option "$it" "y"
-		case $? in
-			0)
-				printf "makepkgopt = %s\n" "$it"
-				;;
-			1)
-				printf "makepkgopt = %s\n" "!$it"
-				;;
-		esac
-	done
+write_buildinfo() {
+	msg2 "$(gettext "Generating %s file...")" ".BUILDINFO"
+
+	printf "builddir = %s\n"  "${BUILDDIR}"
+
+	local sum="$(openssl dgst -sha256 "${BUILDFILE}")"
+	sum=${sum##* }
+
+	printf "pkgbuild_sha256sum = %s\n" $sum
+
+	printf "buildenv = %s\n" "${BUILDENV[@]}"
+	printf "options = %s\n" "${OPTIONS[@]}"
+
+	local pkglist=($(run_pacman -Q | sed "s# #-#"))
+	printf "installed = %s\n" "${pkglist[@]}"
 }
 
 create_package() {
@@ -1178,8 +1182,9 @@ create_package() {
 
 	pkgarch=$(get_pkg_arch)
 	write_pkginfo > .PKGINFO
+	write_buildinfo > .BUILDINFO
 
-	local comp_files=('.PKGINFO')
+	local comp_files=('.PKGINFO' '.BUILDINFO')
 
 	# check for changelog/install files
 	for i in 'changelog/.CHANGELOG' 'install/.INSTALL'; do
@@ -1409,8 +1414,8 @@ install_package() {
 		pkgarch=$(get_pkg_arch $pkg)
 		pkglist+=("$PKGDEST/${pkg}-${fullver}-${pkgarch}${PKGEXT}")
 
-		if [[ -f "$PKGDEST/${pkg}-debug-${fullver}-${pkgarch}${PKGEXT}" ]]; then
-			pkglist+=("$PKGDEST/${pkg}-debug-${fullver}-${pkgarch}${PKGEXT}")
+		if [[ -f "$PKGDEST/${pkg}-@DEBUGSUFFIX@-${fullver}-${pkgarch}${PKGEXT}" ]]; then
+			pkglist+=("$PKGDEST/${pkg}-@DEBUGSUFFIX@-${fullver}-${pkgarch}${PKGEXT}")
 		fi
 	done
 
@@ -1542,7 +1547,7 @@ check_software() {
 	# openssl - checksum operations
 	if (( ! SKIPCHECKSUMS )); then
 		if ! type -p openssl >/dev/null; then
-			error "$(gettext "Cannot find the %s binary required for validating sourcefile checksums.")" "openssl"
+			error "$(gettext "Cannot find the %s binary required for validating source file checksums.")" "openssl"
 			ret=1
 		fi
 	fi
@@ -1564,7 +1569,7 @@ check_software() {
 	fi
 
 	# distcc - compilation with distcc
-	if check_buildenv "distcc" "y" && ! check_option "distcc" "n"; then
+	if check_buildoption "distcc" "y"; then
 		if ! type -p distcc >/dev/null; then
 			error "$(gettext "Cannot find the %s binary required for distributed compilation.")" "distcc"
 			ret=1
@@ -1572,7 +1577,7 @@ check_software() {
 	fi
 
 	# ccache - compilation with ccache
-	if check_buildenv "ccache" "y" && ! check_option "ccache" "n"; then
+	if check_buildoption "ccache" "y"; then
 		if ! type -p ccache >/dev/null; then
 			error "$(gettext "Cannot find the %s binary required for compiler cache usage.")" "ccache"
 			ret=1
@@ -1671,7 +1676,7 @@ restore_package_variables() {
 }
 
 run_split_packaging() {
-	local pkgname_backup=${pkgname[@]}
+	local pkgname_backup=("${pkgname[@]}")
 	for pkgname in ${pkgname_backup[@]}; do
 		pkgdir="$pkgdirbase/$pkgname"
 		mkdir "$pkgdir"
@@ -1683,7 +1688,7 @@ run_split_packaging() {
 		create_debug_package
 		restore_package_variables
 	done
-	pkgname=${pkgname_backup[@]}
+	pkgname=("${pkgname_backup[@]}")
 }
 
 m4_include(library/parseopts.sh)
@@ -1726,7 +1731,6 @@ usage() {
 	printf -- "$(gettext "  --noprepare      Do not run the %s function in the %s")\n" "prepare()" "$BUILDSCRIPT"
 	printf -- "$(gettext "  --nosign         Do not create a signature for the package")\n"
 	printf -- "$(gettext "  --packagelist    Only list packages that would be produced, without PKGEXT")\n"
-	printf -- "$(gettext "  --pkg <list>     Only build listed packages from a split package")\n"
 	printf -- "$(gettext "  --printsrcinfo   Print the generated SRCINFO and exit")\n"
 	printf -- "$(gettext "  --sign           Sign the resulting package with %s")\n" "gpg"
 	printf -- "$(gettext "  --skipchecksums  Do not verify checksums of the source files")\n"
@@ -1748,7 +1752,7 @@ usage() {
 version() {
 	printf "makepkg (pacman) %s\n" "$makepkg_version"
 	printf -- "$(gettext "\
-Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>.\n\
+Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>.\n\
 Copyright (C) 2002-2006 Judd Vinet <jvinet@zeroflux.org>.\n\n\
 This is free software; see the source for copying conditions.\n\
 There is NO WARRANTY, to the extent permitted by law.\n")"
@@ -1817,7 +1821,6 @@ while true; do
 		--nosign)         SIGNPKG='n' ;;
 		-o|--nobuild)     NOBUILD=1 ;;
 		-p)               shift; BUILDFILE=$1 ;;
-		--pkg)            shift; IFS=, read -ra p <<<"$1"; PKGLIST+=("${p[@]}"); unset p ;;
 		--packagelist)    PACKAGELIST=1 IGNOREARCH=1;;
 		--printsrcinfo)   PRINTSRCINFO=1 ;;
 		-r|--rmdeps)      RMDEPS=1 ;;
@@ -2020,8 +2023,15 @@ else
 	source_buildfile "$BUILDFILE"
 fi
 
-# set defaults if they weren't specified in buildfile
 pkgbase=${pkgbase:-${pkgname[0]}}
+
+# check the PKGBUILD for some basic requirements
+lint_pkgbuild || exit 1
+
+if (( !SOURCEONLY )); then
+	merge_arch_attrs
+fi
+
 basever=$(get_full_version)
 
 if [[ $BUILDDIR = "$startdir" ]]; then
@@ -2048,9 +2058,6 @@ fi
 if have_function pkgver; then
 	PKGVERFUNC=1
 fi
-
-# check the PKGBUILD for some basic requirements
-lint_pkgbuild || exit 1
 
 # check we have the software required to process the PKGBUILD
 check_software || exit 1
@@ -2079,11 +2086,6 @@ if have_function package; then
 	PKGFUNC=1
 elif [[ $SPLITPKG -eq 0 ]] && have_function package_${pkgname}; then
 	SPLITPKG=1
-fi
-
-if [[ -n "${PKGLIST[@]}" ]]; then
-	unset pkgname
-	pkgname=("${PKGLIST[@]}")
 fi
 
 # check if gpg signature is to be created and if signing key is valid
@@ -2175,7 +2177,6 @@ if (( SOURCEONLY )); then
 fi
 
 if (( NODEPS || ( VERIFYSOURCE && !DEP_BIN ) )); then
-	# no warning message needed for nobuild
 	if (( NODEPS )); then
 		warning "$(gettext "Skipping dependency checks.")"
 	fi
@@ -2214,19 +2215,22 @@ mkdir -p "$srcdir"
 chmod a-s "$srcdir"
 cd_safe "$srcdir"
 
-if (( NOEXTRACT && ! VERIFYSOURCE )); then
-	warning "$(gettext "Using existing %s tree")" "\$srcdir/"
-elif (( !REPKG )); then
-	download_sources
-	check_source_integrity
-	(( VERIFYSOURCE )) && exit 0 # $E_OK
+if (( !REPKG )); then
+	if (( NOEXTRACT && ! VERIFYSOURCE )); then
+		warning "$(gettext "Using existing %s tree")" "\$srcdir/"
+	else
+		download_sources
+		check_source_integrity
+		(( VERIFYSOURCE )) && exit 0 # $E_OK
 
-	if (( CLEANBUILD )); then
-		msg "$(gettext "Removing existing %s directory...")" "\$srcdir/"
-		rm -rf "$srcdir"/*
+		if (( CLEANBUILD )); then
+			msg "$(gettext "Removing existing %s directory...")" "\$srcdir/"
+			rm -rf "$srcdir"/*
+		fi
+
+		extract_sources
 	fi
 
-	extract_sources
 	if (( PKGVERFUNC )); then
 		update_pkgver
 		basever=$(get_full_version)

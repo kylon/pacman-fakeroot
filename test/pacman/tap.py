@@ -1,4 +1,4 @@
-#  Copyright (c) 2013-2015 Pacman Development Team <pacman-dev@archlinux.org>
+#  Copyright (c) 2013-2016 Pacman Development Team <pacman-dev@archlinux.org>
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@ level = 0
 failed = 0
 
 def _output(msg):
-    print("%s%s" % ("    "*level, msg))
+    print("%s%s" % ("    "*level, str(msg).replace("\n", "\\n")))
 
 def ok(ok, description=""):
     global count, failed

@@ -1,7 +1,7 @@
 /*
  *  util-common.h
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,9 +30,13 @@ int llstat(char *path, struct stat *buf);
 
 char *safe_fgets(char *s, int size, FILE *stream);
 
+size_t strtrim(char *str);
+
 #ifndef HAVE_STRNDUP
 char *strndup(const char *s, size_t n);
 #endif
+
+#define ARRAYSIZE(a) (sizeof (a) / sizeof (a[0]))
 
 #endif /* _PM_UTIL_COMMON_H */
 

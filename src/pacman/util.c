@@ -1,7 +1,7 @@
 /*
  *  util.c
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -29,7 +29,6 @@
 #include <stdint.h> /* intmax_t */
 #include <string.h>
 #include <errno.h>
-#include <ctype.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <limits.h>
@@ -351,44 +350,6 @@ void indentprint(const char *str, unsigned short indent, unsigned short cols)
 		p++;
 	}
 	free(wcstr);
-}
-
-/* Trim whitespace and newlines from a string
- */
-size_t strtrim(char *str)
-{
-	char *end, *pch = str;
-
-	if(str == NULL || *str == '\0') {
-		/* string is empty, so we're done. */
-		return 0;
-	}
-
-	while(isspace((unsigned char)*pch)) {
-		pch++;
-	}
-	if(pch != str) {
-		size_t len = strlen(pch);
-		if(len) {
-			memmove(str, pch, len + 1);
-			pch = str;
-		} else {
-			*str = '\0';
-		}
-	}
-
-	/* check if there wasn't anything but whitespace in the string. */
-	if(*str == '\0') {
-		return 0;
-	}
-
-	end = (str + strlen(str) - 1);
-	while(isspace((unsigned char)*end)) {
-		end--;
-	}
-	*++end = '\0';
-
-	return end - pch;
 }
 
 /* Replace all occurrences of 'needle' with 'replace' in 'str', returning
@@ -851,7 +812,7 @@ static alpm_list_t *create_verbose_header(size_t count)
 	alpm_list_t *ret = NULL;
 
 	char *header;
-	pm_asprintf(&header, "%s (%zd)", _("Package"), count);
+	pm_asprintf(&header, "%s (%zu)", _("Package"), count);
 
 	add_table_cell(&ret, header, CELL_TITLE | CELL_FREE);
 	add_table_cell(&ret, _("Old Version"), CELL_TITLE);
@@ -960,7 +921,7 @@ static void _display_targets(alpm_list_t *targets, int verbose)
 	}
 
 	/* print to screen */
-	pm_asprintf(&str, "%s (%zd)", _("Packages"), alpm_list_count(targets));
+	pm_asprintf(&str, "%s (%zu)", _("Packages"), alpm_list_count(targets));
 	printf("\n");
 
 	cols = getcols();
@@ -1114,7 +1075,7 @@ double humanize_size(off_t bytes, const char target_unit, int precision,
 {
 	static const char *labels[] = {"B", "KiB", "MiB", "GiB",
 		"TiB", "PiB", "EiB", "ZiB", "YiB"};
-	static const int unitcount = sizeof(labels) / sizeof(labels[0]);
+	static const int unitcount = ARRAYSIZE(labels);
 
 	double val = (double)bytes;
 	int index;

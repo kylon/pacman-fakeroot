@@ -1,7 +1,7 @@
 /*
  *  deps.c
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005, 2006 by Miklos Vajna <vmiklos@frugalware.org>
@@ -37,6 +37,7 @@
 
 void SYMEXPORT alpm_dep_free(alpm_depend_t *dep)
 {
+	ASSERT(dep != NULL, return);
 	FREE(dep->name);
 	FREE(dep->version);
 	FREE(dep->desc);
@@ -63,6 +64,7 @@ error:
 
 void SYMEXPORT alpm_depmissing_free(alpm_depmissing_t *miss)
 {
+	ASSERT(miss != NULL, return);
 	alpm_dep_free(miss->depend);
 	FREE(miss->target);
 	FREE(miss->causingpkg);
@@ -105,7 +107,13 @@ static alpm_list_t *dep_graph_init(alpm_handle_t *handle,
 	alpm_list_t *i, *j;
 	alpm_list_t *vertices = NULL;
 	alpm_list_t *localpkgs = alpm_list_diff(
-			alpm_db_get_pkgcache(handle->db_local), ignore, _alpm_pkg_cmp);
+			alpm_db_get_pkgcache(handle->db_local), targets, _alpm_pkg_cmp);
+
+	if(ignore) {
+		alpm_list_t *oldlocal = localpkgs;
+		localpkgs = alpm_list_diff(oldlocal, ignore, _alpm_pkg_cmp);
+		alpm_list_free(oldlocal);
+	}
 
 	/* We create the vertices */
 	for(i = targets; i; i = i->next) {
@@ -137,8 +145,7 @@ static alpm_list_t *dep_graph_init(alpm_handle_t *handle,
 				alpm_graph_t *vertex_j = _alpm_graph_new();
 				vertex_j->data = (void *)j->data;
 				vertices = alpm_list_add(vertices, vertex_j);
-				vertex_i->children =
-					alpm_list_add(vertex_i->children, vertex_j);
+				vertex_i->children = alpm_list_add(vertex_i->children, vertex_j);
 				localpkgs = alpm_list_remove_item(localpkgs, j);
 				free(j);
 			}

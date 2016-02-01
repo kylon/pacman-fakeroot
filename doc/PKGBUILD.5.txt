@@ -402,6 +402,11 @@ each split package's packaging function:
 `provides`, `conflicts`, `replaces`, `backup`, `options`, `install`, and
 `changelog`.
 
+Note that makepkg does not consider split package `depends` when checking
+if dependencies are installed before package building and with `--syncdeps`.
+All packages required to make the package are required to be specified in
+the global `depends` and `makedepends` arrays.
+
 An optional global directive is available when building a split package:
 
 *pkgbase*::
@@ -421,7 +426,7 @@ itself after installation and perform an opposite action upon removal.
 
 The exact time the script is run varies with each operation, and should be
 self-explanatory. Note that during an upgrade operation, none of the install
-or remove scripts will be called.
+or remove functions will be called.
 
 Scripts are passed either one or two ``full version strings'', where a full
 version string is either 'pkgver-pkgrel' or 'epoch:pkgver-pkgrel', if epoch is

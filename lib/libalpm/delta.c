@@ -1,7 +1,7 @@
 /*
  *  delta.c
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2007-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -335,6 +335,7 @@ error:
 
 void _alpm_delta_free(alpm_delta_t *delta)
 {
+	ASSERT(delta != NULL, return);
 	FREE(delta->delta);
 	FREE(delta->delta_md5);
 	FREE(delta->from);

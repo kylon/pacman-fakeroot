@@ -1,7 +1,7 @@
 /*
  *  trans.c
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005 by Christian Hamar <krics@linuxforum.hu>
@@ -40,6 +40,7 @@
 #include "sync.h"
 #include "alpm.h"
 #include "deps.h"
+#include "hook.h"
 
 /** \addtogroup alpm_trans Transaction Functions
  * @brief Functions to manipulate libalpm transactions
@@ -159,6 +160,7 @@ int SYMEXPORT alpm_trans_prepare(alpm_handle_t *handle, alpm_list_t **data)
 int SYMEXPORT alpm_trans_commit(alpm_handle_t *handle, alpm_list_t **data)
 {
 	alpm_trans_t *trans;
+	alpm_event_any_t event;
 
 	/* Sanity checks */
 	CHECK_HANDLE(handle, return -1);
@@ -183,11 +185,21 @@ int SYMEXPORT alpm_trans_commit(alpm_handle_t *handle, alpm_list_t **data)
 		if(trans->flags & ALPM_TRANS_FLAG_DOWNLOADONLY) {
 			return 0;
 		}
+		if(_alpm_sync_check(handle, data) != 0) {
+			/* pm_errno is set by _alpm_sync_check() */
+			return -1;
+		}
+	}
+
+	if(_alpm_hook_run(handle, ALPM_HOOK_PRE_TRANSACTION) != 0) {
+		RET_ERR(handle, ALPM_ERR_TRANS_HOOK_FAILED, -1);
 	}
 
 	trans->state = STATE_COMMITING;
 
 	alpm_logaction(handle, ALPM_CALLER_PREFIX, "transaction started\n");
+	event.type = ALPM_EVENT_TRANSACTION_START;
+	EVENT(handle, (void *)&event);
 
 	if(trans->add == NULL) {
 		if(_alpm_remove_packages(handle, 1) == -1) {
@@ -198,7 +210,7 @@ int SYMEXPORT alpm_trans_commit(alpm_handle_t *handle, alpm_list_t **data)
 			return -1;
 		}
 	} else {
-		if(_alpm_sync_commit(handle, data) == -1) {
+		if(_alpm_sync_commit(handle) == -1) {
 			/* pm_errno is set by _alpm_sync_commit() */
 			alpm_errno_t save = handle->pm_errno;
 			alpm_logaction(handle, ALPM_CALLER_PREFIX, "transaction failed\n");
@@ -210,7 +222,10 @@ int SYMEXPORT alpm_trans_commit(alpm_handle_t *handle, alpm_list_t **data)
 	if(trans->state == STATE_INTERRUPTED) {
 		alpm_logaction(handle, ALPM_CALLER_PREFIX, "transaction interrupted\n");
 	} else {
+		event.type = ALPM_EVENT_TRANSACTION_DONE;
+		EVENT(handle, (void *)&event);
 		alpm_logaction(handle, ALPM_CALLER_PREFIX, "transaction completed\n");
+		_alpm_hook_run(handle, ALPM_HOOK_POST_TRANSACTION);
 	}
 
 	trans->state = STATE_COMMITED;
@@ -381,7 +396,7 @@ int _alpm_runscriptlet(alpm_handle_t *handle, const char *filepath,
 
 	_alpm_log(handle, ALPM_LOG_DEBUG, "executing \"%s\"\n", cmdline);
 
-	retval = _alpm_run_chroot(handle, SCRIPTLET_SHELL, argv);
+	retval = _alpm_run_chroot(handle, SCRIPTLET_SHELL, argv, NULL, NULL);
 
 cleanup:
 	if(scriptfn && unlink(scriptfn)) {

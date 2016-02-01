@@ -1,7 +1,7 @@
 /*
  *  handle.c
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005, 2006 by Miklos Vajna <vmiklos@frugalware.org>
@@ -83,6 +83,7 @@ void _alpm_handle_free(alpm_handle_t *handle)
 	FREE(handle->dbpath);
 	FREE(handle->dbext);
 	FREELIST(handle->cachedirs);
+	FREELIST(handle->hookdirs);
 	FREE(handle->logfile);
 	FREE(handle->lockfile);
 	FREE(handle->arch);
@@ -125,16 +126,30 @@ int _alpm_handle_lock(alpm_handle_t *handle)
 	return (handle->lockfd >= 0 ? 0 : -1);
 }
 
-/** Remove a lock file */
-int _alpm_handle_unlock(alpm_handle_t *handle)
+/** Remove the database lock file
+ * @param handle the context handle
+ * @return 0 on success, -1 on error
+ *
+ * @note Safe to call from inside signal handlers.
+ */
+int SYMEXPORT alpm_unlock(alpm_handle_t *handle)
 {
-	ASSERT(handle->lockfile != NULL, return -1);
+	ASSERT(handle->lockfile != NULL, return 0);
 	ASSERT(handle->lockfd >= 0, return 0);
 
 	close(handle->lockfd);
 	handle->lockfd = -1;
 
 	if(unlink(handle->lockfile) != 0) {
+		RET_ERR(handle, ALPM_ERR_SYSTEM, -1);
+	} else {
+		return 0;
+	}
+}
+
+int _alpm_handle_unlock(alpm_handle_t *handle)
+{
+	if(alpm_unlock(handle) != 0) {
 		if(errno == ENOENT) {
 			_alpm_log(handle, ALPM_LOG_WARNING,
 					_("lock file missing %s\n"), handle->lockfile);
@@ -149,6 +164,7 @@ int _alpm_handle_unlock(alpm_handle_t *handle)
 			return -1;
 		}
 	}
+
 	return 0;
 }
 
@@ -205,6 +221,12 @@ const char SYMEXPORT *alpm_option_get_dbpath(alpm_handle_t *handle)
 {
 	CHECK_HANDLE(handle, return NULL);
 	return handle->dbpath;
+}
+
+alpm_list_t SYMEXPORT *alpm_option_get_hookdirs(alpm_handle_t *handle)
+{
+	CHECK_HANDLE(handle, return NULL);
+	return handle->hookdirs;
 }
 
 alpm_list_t SYMEXPORT *alpm_option_get_cachedirs(alpm_handle_t *handle)
@@ -383,6 +405,58 @@ alpm_errno_t _alpm_set_directory_option(const char *value,
 	*storage = canonicalize_path(path);
 	if(!*storage) {
 		return ALPM_ERR_MEMORY;
+	}
+	return 0;
+}
+
+int SYMEXPORT alpm_option_add_hookdir(alpm_handle_t *handle, const char *hookdir)
+{
+	char *newhookdir;
+
+	CHECK_HANDLE(handle, return -1);
+	ASSERT(hookdir != NULL, RET_ERR(handle, ALPM_ERR_WRONG_ARGS, -1));
+
+	newhookdir = canonicalize_path(hookdir);
+	if(!newhookdir) {
+		RET_ERR(handle, ALPM_ERR_MEMORY, -1);
+	}
+	handle->hookdirs = alpm_list_add(handle->hookdirs, newhookdir);
+	_alpm_log(handle, ALPM_LOG_DEBUG, "option 'hookdir' = %s\n", newhookdir);
+	return 0;
+}
+
+int SYMEXPORT alpm_option_set_hookdirs(alpm_handle_t *handle, alpm_list_t *hookdirs)
+{
+	alpm_list_t *i;
+	CHECK_HANDLE(handle, return -1);
+	if(handle->hookdirs) {
+		FREELIST(handle->hookdirs);
+	}
+	for(i = hookdirs; i; i = i->next) {
+		int ret = alpm_option_add_hookdir(handle, i->data);
+		if(ret) {
+			return ret;
+		}
+	}
+	return 0;
+}
+
+int SYMEXPORT alpm_option_remove_hookdir(alpm_handle_t *handle, const char *hookdir)
+{
+	char *vdata = NULL;
+	char *newhookdir;
+	CHECK_HANDLE(handle, return -1);
+	ASSERT(hookdir != NULL, RET_ERR(handle, ALPM_ERR_WRONG_ARGS, -1));
+
+	newhookdir = canonicalize_path(hookdir);
+	if(!newhookdir) {
+		RET_ERR(handle, ALPM_ERR_MEMORY, -1);
+	}
+	handle->hookdirs = alpm_list_remove_str(handle->hookdirs, newhookdir, &vdata);
+	FREE(newhookdir);
+	if(vdata != NULL) {
+		FREE(vdata);
+		return 1;
 	}
 	return 0;
 }

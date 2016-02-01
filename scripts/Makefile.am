@@ -50,7 +50,6 @@ LIBMAKEPKGDIRS = \
 LIBMAKEPKG = \
 	libmakepkg/util/message.sh \
 	libmakepkg/util/option.sh \
-	libmakepkg/util/pkgbuild.sh \
 	libmakepkg/util/util.sh
 
 LIBMAKEPKG_IN = \
@@ -74,6 +73,7 @@ LIBMAKEPKG_IN = \
 	libmakepkg/lint_pkgbuild/provides.sh \
 	libmakepkg/lint_pkgbuild/source.sh \
 	libmakepkg/lint_pkgbuild/util.sh \
+	libmakepkg/lint_pkgbuild/variable.sh \
 	libmakepkg/source.sh \
 	libmakepkg/source/bzr.sh \
 	libmakepkg/source/file.sh \
@@ -92,6 +92,7 @@ LIBMAKEPKG_IN = \
 	libmakepkg/tidy/upx.sh \
 	libmakepkg/tidy/zipman.sh \
 	libmakepkg/util.sh \
+	libmakepkg/util/pkgbuild.sh \
 	libmakepkg/util/source.sh
 
 LIBMAKEPKG_DIST = \

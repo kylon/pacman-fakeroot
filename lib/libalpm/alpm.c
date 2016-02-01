@@ -1,7 +1,7 @@
 /*
  *  alpm.c
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005 by Christian Hamar <krics@linuxforum.hu>
@@ -50,6 +50,7 @@ alpm_handle_t SYMEXPORT *alpm_initialize(const char *root, const char *dbpath,
 {
 	alpm_errno_t myerr;
 	const char *lf = "db.lck";
+	char *hookdir;
 	size_t lockfilelen;
 	alpm_handle_t *myhandle = _alpm_handle_new();
 
@@ -63,6 +64,13 @@ alpm_handle_t SYMEXPORT *alpm_initialize(const char *root, const char *dbpath,
 	if((myerr = _alpm_set_directory_option(dbpath, &(myhandle->dbpath), 1))) {
 		goto cleanup;
 	}
+
+	/* to contatenate myhandle->root (ends with a slash) with SYSHOOKDIR (starts
+	 * with a slash) correctly, we skip SYSHOOKDIR[0]; the regular +1 therefore
+	 * disappears from the allocation */
+	MALLOC(hookdir, strlen(myhandle->root) + strlen(SYSHOOKDIR), goto cleanup);
+	sprintf(hookdir, "%s%s", myhandle->root, SYSHOOKDIR + 1);
+	myhandle->hookdirs = alpm_list_add(NULL, hookdir);
 
 	/* set default database extension */
 	STRDUP(myhandle->dbext, ".db", goto cleanup);

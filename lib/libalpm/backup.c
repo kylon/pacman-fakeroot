@@ -1,7 +1,7 @@
 /*
  *  backup.c
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2005 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005 by Christian Hamar <krics@linuxforum.hu>
@@ -76,9 +76,10 @@ alpm_backup_t *_alpm_needbackup(const char *file, alpm_pkg_t *pkg)
 
 void _alpm_backup_free(alpm_backup_t *backup)
 {
-	free(backup->name);
-	free(backup->hash);
-	free(backup);
+	ASSERT(backup != NULL, return);
+	FREE(backup->name);
+	FREE(backup->hash);
+	FREE(backup);
 }
 
 alpm_backup_t *_alpm_backup_dup(const alpm_backup_t *backup)

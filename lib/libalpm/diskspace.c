@@ -1,7 +1,7 @@
 /*
  *  diskspace.c
  *
- *  Copyright (c) 2010-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2010-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -237,8 +237,10 @@ static int calculate_removed_size(alpm_handle_t *handle,
 		snprintf(path, PATH_MAX, "%s%s", handle->root, filename);
 
 		if(llstat(path, &st) == -1) {
-			_alpm_log(handle, ALPM_LOG_WARNING,
-					_("could not get file information for %s\n"), filename);
+			if(alpm_option_match_noextract(handle, filename)) {
+				_alpm_log(handle, ALPM_LOG_WARNING,
+						_("could not get file information for %s\n"), filename);
+			}
 			continue;
 		}
 
@@ -349,7 +351,7 @@ static int check_mountpoint(alpm_handle_t *handle, alpm_mountpoint_t *mp)
 			(uintmax_t)cushion, (uintmax_t)mp->fsp.f_bfree);
 	if(needed >= 0 && (fsblkcnt_t)needed > mp->fsp.f_bfree) {
 		_alpm_log(handle, ALPM_LOG_ERROR,
-				_("Partition %s too full: %jd blocks needed, %jd blocks free\n"),
+				_("Partition %s too full: %jd blocks needed, %ju blocks free\n"),
 				mp->mount_dir, (intmax_t)needed, (uintmax_t)mp->fsp.f_bfree);
 		return 1;
 	}

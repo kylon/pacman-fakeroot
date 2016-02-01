@@ -1,7 +1,7 @@
 /*
  *  pacman.c
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -30,7 +30,6 @@
 #include <limits.h>
 #include <getopt.h>
 #include <string.h>
-#include <signal.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/utsname.h> /* uname */
@@ -45,6 +44,7 @@
 #include "pacman.h"
 #include "util.h"
 #include "conf.h"
+#include "sighandler.h"
 
 /* list of targets specified on command line */
 static alpm_list_t *pm_targets;
@@ -177,10 +177,13 @@ static void usage(int op, const char * const myname)
 		} else if(op == PM_OP_FILES) {
 			addlist(_("  -l, --list           list the files owned by the queried package\n"));
 			addlist(_("  -o, --owns <file>    query the package that owns <file>\n"));
+			addlist(_("  -q, --quiet          show less information for query and search\n"));
 			addlist(_("  -s, --search <file>  search package file names for matching strings\n"));
 			addlist(_("  -x, --regex          enable searching using regular expressions\n"));
 			addlist(_("  -y, --refresh        download fresh package databases from the server\n"
 			          "                       (-yy to force a refresh even if up to date)\n"));
+			addlist(_("      --machinereadable\n"
+			          "                       produce machine-readable output\n"));
 		}
 		switch(op) {
 			case PM_OP_SYNC:
@@ -210,6 +213,7 @@ static void usage(int op, const char * const myname)
 		addlist(_("  -v, --verbose        be verbose\n"));
 		addlist(_("      --arch <arch>    set an alternate architecture\n"));
 		addlist(_("      --cachedir <dir> set an alternate package cache location\n"));
+		addlist(_("      --hookdir <dir>  set an alternate hook location\n"));
 		addlist(_("      --color <when>   colorize the output\n"));
 		addlist(_("      --config <path>  set an alternate configuration file\n"));
 		addlist(_("      --debug          display debug messages\n"));
@@ -232,7 +236,7 @@ static void version(void)
 {
 	printf("\n");
 	printf(" .--.                  Pacman v%s - libalpm v%s\n", PACKAGE_VERSION, alpm_version());
-	printf("/ _.-' .-.  .-.  .-.   Copyright (C) 2006-2015 Pacman Development Team\n");
+	printf("/ _.-' .-.  .-.  .-.   Copyright (C) 2006-2016 Pacman Development Team\n");
 	printf("\\  '-. '-'  '-'  '-'   Copyright (C) 2002-2006 Judd Vinet\n");
 	printf(" '--'\n");
 	printf(_("                       This program may be freely redistributed under\n"
@@ -275,6 +279,7 @@ static void setuseragent(void)
  */
 static void cleanup(int ret)
 {
+	remove_soft_interrupt_handler();
 	if(config) {
 		/* free alpm library resources */
 		if(config->handle && alpm_release(config->handle) == -1) {
@@ -288,54 +293,6 @@ static void cleanup(int ret)
 	/* free memory */
 	FREELIST(pm_targets);
 	exit(ret);
-}
-
-/** Write function that correctly handles EINTR.
- */
-static ssize_t xwrite(int fd, const void *buf, size_t count)
-{
-	ssize_t ret;
-	do {
-		ret = write(fd, buf, count);
-	} while(ret == -1 && errno == EINTR);
-	return ret;
-}
-
-/** Catches thrown signals. Performs necessary cleanup to ensure database is
- * in a consistent state.
- * @param signum the thrown signal
- */
-static void handler(int signum)
-{
-	int out = fileno(stdout);
-	int err = fileno(stderr);
-	const char *msg;
-	if(signum == SIGSEGV) {
-		msg = "\nerror: segmentation fault\n"
-			"Please submit a full bug report with --debug if appropriate.\n";
-		xwrite(err, msg, strlen(msg));
-		exit(signum);
-	} else if(signum == SIGINT || signum == SIGHUP) {
-		if(signum == SIGINT) {
-			msg = "\nInterrupt signal received\n";
-		} else {
-			msg = "\nHangup signal received\n";
-		}
-		xwrite(err, msg, strlen(msg));
-		if(alpm_trans_interrupt(config->handle) == 0) {
-			/* a transaction is being interrupted, don't exit pacman yet. */
-			return;
-		}
-	} else if(signum == SIGWINCH) {
-		columns_cache_reset();
-		return;
-	}
-	/* SIGINT/SIGHUP: no committing transaction, release it now and then exit pacman
-	 * SIGTERM: release no matter what */
-	alpm_trans_release(config->handle);
-	/* output a newline to be sure we clear any line we may be on */
-	xwrite(out, "\n", 1);
-	cleanup(128 + signum);
 }
 
 static void invalid_opt(int used, const char *opt1, const char *opt2)
@@ -462,6 +419,9 @@ static int parsearg_global(int opt)
 		case OP_GPGDIR:
 			free(config->gpgdir);
 			config->gpgdir = strdup(optarg);
+			break;
+		case OP_HOOKDIR:
+			config->hookdirs = alpm_list_add(config->hookdirs, strdup(optarg));
 			break;
 		case OP_LOGFILE:
 			free(config->logfile);
@@ -792,6 +752,9 @@ static int parsearg_files(int opt)
 		case 'x':
 			config->op_f_regex = 1;
 			break;
+		case OP_MACHINEREADABLE:
+			config->op_f_machinereadable = 1;
+			break;
 		case OP_QUIET:
 		case 'q':
 			config->quiet = 1;
@@ -941,6 +904,7 @@ static int parseargs(int argc, char *argv[])
 		{"recursive",  no_argument,       0, OP_RECURSIVE},
 		{"search",     no_argument,       0, OP_SEARCH},
 		{"regex",      no_argument,       0, OP_REGEX},
+		{"machinereadable",      no_argument,       0, OP_MACHINEREADABLE},
 		{"unrequired", no_argument,       0, OP_UNREQUIRED},
 		{"upgrades",   no_argument,       0, OP_UPGRADES},
 		{"sysupgrade", no_argument,       0, OP_SYSUPGRADE},
@@ -959,6 +923,7 @@ static int parseargs(int argc, char *argv[])
 		{"noscriptlet", no_argument,      0, OP_NOSCRIPTLET},
 		{"ask",        required_argument, 0, OP_ASK},
 		{"cachedir",   required_argument, 0, OP_CACHEDIR},
+		{"hookdir",    required_argument, 0, OP_HOOKDIR},
 		{"asdeps",     no_argument,       0, OP_ASDEPS},
 		{"logfile",    required_argument, 0, OP_LOGFILE},
 		{"ignoregroup", required_argument, 0, OP_IGNOREGROUP},
@@ -1125,24 +1090,9 @@ int main(int argc, char *argv[])
 {
 	int ret = 0;
 	size_t i;
-	struct sigaction new_action, old_action;
-	const int signals[] = { SIGHUP, SIGINT, SIGTERM, SIGSEGV, SIGWINCH };
 	uid_t myuid = getuid();
 
-	/* Set signal handlers */
-	/* Set up the structure to specify the new action. */
-	new_action.sa_handler = handler;
-	sigemptyset(&new_action.sa_mask);
-	new_action.sa_flags = SA_RESTART;
-
-	/* assign our handler to any signals we care about */
-	for(i = 0; i < sizeof(signals) / sizeof(signals[0]); i++) {
-		int signal = signals[i];
-		sigaction(signal, NULL, &old_action);
-		if(old_action.sa_handler != SIG_IGN) {
-			sigaction(signal, &new_action, NULL);
-		}
-	}
+	install_segv_handler();
 
 	/* i18n init */
 #if defined(ENABLE_NLS)
@@ -1158,9 +1108,14 @@ int main(int argc, char *argv[])
 		cleanup(1);
 	}
 
-	/* disable progressbar if the output is redirected */
+	install_soft_interrupt_handler();
+
 	if(!isatty(fileno(stdout))) {
+		/* disable progressbar if the output is redirected */
 		config->noprogressbar = 1;
+	} else {
+		/* install signal handler to update output width */
+		install_winch_handler();
 	}
 
 	/* Priority of options:
@@ -1271,6 +1226,11 @@ int main(int argc, char *argv[])
 		printf("DB Path   : %s\n", alpm_option_get_dbpath(config->handle));
 		printf("Cache Dirs: ");
 		for(j = alpm_option_get_cachedirs(config->handle); j; j = alpm_list_next(j)) {
+			printf("%s  ", (const char *)j->data);
+		}
+		printf("\n");
+		printf("Hook Dirs : ");
+		for(j = alpm_option_get_hookdirs(config->handle); j; j = alpm_list_next(j)) {
 			printf("%s  ", (const char *)j->data);
 		}
 		printf("\n");

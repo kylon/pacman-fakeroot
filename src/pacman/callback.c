@@ -1,7 +1,7 @@
 /*
  *  callback.c
  *
- *  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -160,6 +160,16 @@ static void fill_progress(const int bar_percent, const int disp_percent,
 	fflush(stdout);
 }
 
+static int number_length(size_t n)
+{
+	int digits = 1;
+	while((n /= 10)) {
+		++digits;
+	}
+
+	return digits;
+}
+
 /* callback to handle messages/notifications from libalpm transactions */
 void cb_event(alpm_event_t *event)
 {
@@ -167,6 +177,22 @@ void cb_event(alpm_event_t *event)
 		return;
 	}
 	switch(event->type) {
+		case ALPM_EVENT_HOOK_START:
+			if(event->hook.when == ALPM_HOOK_PRE_TRANSACTION) {
+				colon_printf(_("Running pre-transaction hooks...\n"));
+			} else {
+				colon_printf(_("Running post-transaction hooks...\n"));
+			}
+			break;
+		case ALPM_EVENT_HOOK_RUN_START:
+			{
+				alpm_event_hook_run_t *e = &event->hook_run;
+				int digits = number_length(e->total);
+				printf("(%*zu/%*zu) %s\n", digits, e->position,
+						digits, e->total, 
+						e->desc ? e->desc : e->name);
+			}
+			break;
 		case ALPM_EVENT_CHECKDEPS_START:
 			printf(_("checking dependencies...\n"));
 			break;
@@ -180,6 +206,9 @@ void cb_event(alpm_event_t *event)
 			break;
 		case ALPM_EVENT_INTERCONFLICTS_START:
 			printf(_("looking for conflicting packages...\n"));
+			break;
+		case ALPM_EVENT_TRANSACTION_START:
+			colon_printf(_("Processing package changes...\n"));
 			break;
 		case ALPM_EVENT_PACKAGE_OPERATION_START:
 			if(config->noprogressbar) {
@@ -320,6 +349,7 @@ void cb_event(alpm_event_t *event)
 		case ALPM_EVENT_CHECKDEPS_DONE:
 		case ALPM_EVENT_RESOLVEDEPS_DONE:
 		case ALPM_EVENT_INTERCONFLICTS_DONE:
+		case ALPM_EVENT_TRANSACTION_DONE:
 		case ALPM_EVENT_INTEGRITY_DONE:
 		case ALPM_EVENT_KEYRING_DONE:
 		case ALPM_EVENT_KEY_DOWNLOAD_DONE:
@@ -329,6 +359,8 @@ void cb_event(alpm_event_t *event)
 		case ALPM_EVENT_DISKSPACE_DONE:
 		case ALPM_EVENT_RETRIEVE_DONE:
 		case ALPM_EVENT_RETRIEVE_FAILED:
+		case ALPM_EVENT_HOOK_DONE:
+		case ALPM_EVENT_HOOK_RUN_DONE:
 		/* we can safely ignore those as well */
 		case ALPM_EVENT_PKGDOWNLOAD_START:
 		case ALPM_EVENT_PKGDOWNLOAD_DONE:
@@ -418,8 +450,8 @@ void cb_question(alpm_question_t *question)
 				alpm_question_select_provider_t *q = &question->select_provider;
 				size_t count = alpm_list_count(q->providers);
 				char *depstring = alpm_dep_compute_string(q->depend);
-				colon_printf(_n("There is %zd provider available for %s\n",
-						"There are %zd providers available for %s:\n", count),
+				colon_printf(_n("There is %zu provider available for %s\n",
+						"There are %zu providers available for %s:\n", count),
 						count, depstring);
 				free(depstring);
 				select_display(q->providers);
@@ -443,10 +475,10 @@ void cb_question(alpm_question_t *question)
 				strftime(created, 12, "%Y-%m-%d", localtime(&time));
 
 				if(q->key->revoked) {
-					q->import = yesno(_("Import PGP key %d%c/%s, \"%s\", created: %s (revoked)?"),
+					q->import = yesno(_("Import PGP key %u%c/%s, \"%s\", created: %s (revoked)?"),
 							q->key->length, q->key->pubkey_algo, q->key->fingerprint, q->key->uid, created);
 				} else {
-					q->import = yesno(_("Import PGP key %d%c/%s, \"%s\", created: %s?"),
+					q->import = yesno(_("Import PGP key %u%c/%s, \"%s\", created: %s?"),
 							q->key->length, q->key->pubkey_algo, q->key->fingerprint, q->key->uid, created);
 				}
 			}
@@ -469,7 +501,6 @@ void cb_progress(alpm_progress_t event, const char *pkgname, int percent,
 	/* size of line to allocate for text printing (e.g. not progressbar) */
 	int infolen;
 	int digits, textlen;
-	size_t tmp;
 	char *opr = NULL;
 	/* used for wide character width determination and printing */
 	int len, wclen, wcwid, padwid;
@@ -545,11 +576,8 @@ void cb_progress(alpm_progress_t event, const char *pkgname, int percent,
 	}
 
 	/* find # of digits in package counts to scale output */
-	digits = 1;
-	tmp = howmany;
-	while((tmp /= 10)) {
-		++digits;
-	}
+	digits = number_length(howmany);
+
 	/* determine room left for non-digits text [not ( 1/12) part] */
 	textlen = infolen - 3 /* (/) */ - (2 * digits) - 1 /* space */;
 
@@ -590,8 +618,8 @@ void cb_progress(alpm_progress_t event, const char *pkgname, int percent,
 
 	}
 
-	printf("(%*ld/%*ld) %ls%-*s", digits, (unsigned long)current,
-			digits, (unsigned long)howmany, wcstr, padwid, "");
+	printf("(%*zu/%*zu) %ls%-*s", digits, current,
+			digits, howmany, wcstr, padwid, "");
 
 	free(wcstr);
 

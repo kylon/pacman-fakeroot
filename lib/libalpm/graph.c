@@ -1,7 +1,7 @@
 /*
  *  graph.c - helpful graph structure and setup/teardown methods
  *
- *  Copyright (c) 2007-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2007-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@ alpm_graph_t *_alpm_graph_new(void)
 
 void _alpm_graph_free(void *data)
 {
+	ASSERT(data != NULL, return);
 	alpm_graph_t *graph = data;
 	alpm_list_free(graph->children);
 	free(graph);

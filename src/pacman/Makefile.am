@@ -4,6 +4,7 @@ SUBDIRS = po
 conffile  = ${sysconfdir}/pacman.conf
 dbpath    = ${localstatedir}/lib/pacman/
 gpgdir    = ${sysconfdir}/pacman.d/gnupg/
+hookdir   = ${sysconfdir}/pacman.d/hooks/
 cachedir  = ${localstatedir}/cache/pacman/pkg/
 logfile   = ${localstatedir}/log/pacman.log
 
@@ -16,6 +17,7 @@ AM_CPPFLAGS = \
 	-DCONFFILE=\"$(conffile)\" \
 	-DDBPATH=\"$(dbpath)\" \
 	-DGPGDIR=\"$(gpgdir)\" \
+	-DHOOKDIR=\"$(hookdir)\" \
 	-DCACHEDIR=\"$(cachedir)\" \
 	-DLOGFILE=\"$(logfile)\"
 
@@ -38,6 +40,7 @@ pacman_SOURCES = \
 	pacman.h pacman.c \
 	query.c \
 	remove.c \
+	sighandler.h sighandler.c \
 	sync.c \
 	callback.h callback.c \
 	upgrade.c \

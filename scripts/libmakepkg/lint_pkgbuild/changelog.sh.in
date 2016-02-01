@@ -2,7 +2,7 @@
 #
 #   changelog.sh - Check the files in the 'changelog' array exist.
 #
-#   Copyright (c) 2014-2015 Pacman Development Team <pacman-dev@archlinux.org>
+#   Copyright (c) 2014-2016 Pacman Development Team <pacman-dev@archlinux.org>
 #
 #   This program is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ lint_pkgbuild_functions+=('lint_changelog')
 
 
 lint_changelog() {
-	local list name file changelog_list ret=0
+	local name file changelog_list
 
 	changelog_list=("${changelog[@]}")
 	for name in "${pkgname[@]}"; do
@@ -41,5 +41,7 @@ lint_changelog() {
 		fi
 	done
 
-	check_files_exist 'changelog' "${changelog_list[@]}"
+	check_files_exist 'changelog' "${changelog_list[@]}" || ret=1
+
+	return $ret
 }

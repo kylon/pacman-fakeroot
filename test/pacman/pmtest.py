@@ -1,5 +1,5 @@
 #  Copyright (c) 2006 by Aurelien Foret <orelien@chez.com>
-#  Copyright (c) 2006-2015 Pacman Development Team <pacman-dev@archlinux.org>
+#  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@ class pmtest(object):
                 "--config", self.configfile(),
                 "--root", self.rootdir(),
                 "--dbpath", self.dbdir(),
+                "--hookdir", self.hookdir(),
                 "--cachedir", self.cachedir()]
 
     def __str__(self):
@@ -178,11 +179,14 @@ class pmtest(object):
         # Filesystem
         vprint("    Populating file system")
         for f in self.filesystem:
-            vprint("\t%s" % f)
-            util.mkfile(self.root, f, f)
-            path = os.path.join(self.root, f)
-            if os.path.isfile(path):
-                os.utime(path, (355, 355))
+            if type(f) is pmfile.pmfile:
+                vprint("\t%s" % f.path)
+                f.mkfile(self.root);
+            else:
+                vprint("\t%s" % f)
+                path = util.mkfile(self.root, f, f)
+                if os.path.isfile(path):
+                    os.utime(path, (355, 355))
         for pkg in self.db["local"].pkgs:
             vprint("\tinstalling %s" % pkg.fullname())
             pkg.install_package(self.root)
@@ -193,10 +197,21 @@ class pmtest(object):
         # Done.
         vprint("    Taking a snapshot of the file system")
         for filename in self.snapshots_needed():
-            f = pmfile.PacmanFile(self.root, filename)
+            f = pmfile.snapshot(self.root, filename)
             self.files.append(f)
             vprint("\t%s" % f.name)
 
+    def add_hook(self, name, content):
+        if not name.endswith(".hook"):
+            name = name + ".hook"
+        path = os.path.join("etc/pacman.d/hooks/", name)
+        self.filesystem.append(pmfile.pmfile(path, content))
+
+    def add_script(self, name, content):
+        if not content.startswith("#!"):
+            content = "#!/bin/sh\n" + content
+        path = os.path.join("bin/", name)
+        self.filesystem.append(pmfile.pmfile(path, content, mode=0o755))
 
     def snapshots_needed(self):
         files = set()
@@ -305,5 +320,8 @@ class pmtest(object):
 
     def cachedir(self):
         return os.path.join(self.root, util.PM_CACHEDIR)
+
+    def hookdir(self):
+        return os.path.join(self.root, util.PM_HOOKDIR)
 
 # vim: set ts=4 sw=4 et:

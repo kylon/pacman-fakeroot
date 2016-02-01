@@ -1,7 +1,7 @@
 /*
  *  pkghash.c
  *
- *  Copyright (c) 2011-2015 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2011-2016 Pacman Development Team <pacman-dev@archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,7 +66,7 @@ alpm_pkghash_t *_alpm_pkghash_create(unsigned int size)
 	CALLOC(hash, 1, sizeof(alpm_pkghash_t), return NULL);
 	size = size / initial_hash_load + 1;
 
-	loopsize = sizeof(prime_list) / sizeof(*prime_list);
+	loopsize = ARRAYSIZE(prime_list);
 	for(i = 0; i < loopsize; i++) {
 		if(prime_list[i] > size) {
 			hash->buckets = prime_list[i];
