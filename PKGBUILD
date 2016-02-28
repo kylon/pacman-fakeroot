@@ -4,8 +4,8 @@
 # Maintainer: Dave Reisner <dreisner@archlinux.org>
 
 pkgname=pacman
-pkgver=5.0.0
-pkgrel=1
+pkgver=5.0.1
+pkgrel=2
 pkgdesc="A library-based package manager with dependency support"
 arch=('i686' 'x86_64')
 url="http://www.archlinux.org/pacman/"
