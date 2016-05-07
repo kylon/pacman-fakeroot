@@ -5,7 +5,7 @@
 
 pkgname=pacman
 pkgver=5.0.1
-pkgrel=2
+pkgrel=3
 pkgdesc="A library-based package manager with dependency support"
 arch=('i686' 'x86_64')
 url="http://www.archlinux.org/pacman/"
@@ -53,7 +53,7 @@ cd ..
       ;;
     x86_64)
       mycarch="x86_64"
-      mychost="x86_64-unknown-linux-gnu"
+      mychost="x86_64-pc-linux-gnu"
       myflags="-march=x86-64"
       ;;
   esac
