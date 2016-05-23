@@ -5,7 +5,7 @@
 
 pkgname=pacman
 pkgver=5.0.1
-pkgrel=3
+pkgrel=4
 pkgdesc="A library-based package manager with dependency support"
 arch=('i686' 'x86_64')
 url="http://www.archlinux.org/pacman/"
@@ -13,7 +13,7 @@ license=('GPL')
 groups=('base' 'base-devel')
 depends=('bash' 'glibc' 'libarchive' 'curl'
          'gpgme' 'pacman-mirrorlist' 'archlinux-keyring')
-makedepends=('asciidoc')   # roundup patch alters docs
+makedepends=('asciidoc')
 checkdepends=('python2' 'fakechroot')
 optdepends=('fakeroot: for makepkg usage as normal user')
 provides=('pacman-contrib')
@@ -21,6 +21,7 @@ conflicts=('pacman-contrib')
 replaces=('pacman-contrib')
 backup=(etc/pacman.conf etc/makepkg.conf)
 options=('strip' 'debug')
+validpgpkeys=('6645B0A8C7005E78DB1D7864F99FFE0FEAE999BD')  # Allan McRae <allan@archlinux.org>
 
 build() {
 cd ..
