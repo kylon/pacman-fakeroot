@@ -1,7 +1,7 @@
 /*
  *  sync.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -630,7 +630,7 @@ static int process_target(const char *target, int error)
 	if(targname && targname != targstring) {
 		alpm_db_t *db;
 		const char *dbname;
-		alpm_db_usage_t usage;
+		int usage;
 
 		*targname = '\0';
 		targname++;
@@ -823,8 +823,13 @@ int sync_prepare_execute(void)
 									conflict->file, conflict->target, conflict->ctarget);
 							break;
 						case ALPM_FILECONFLICT_FILESYSTEM:
-							printf(_("%s: %s exists in filesystem\n"),
-									conflict->target, conflict->file);
+							if(conflict->ctarget[0]) {
+								printf(_("%s: %s exists in filesystem (owned by %s)\n"),
+										conflict->target, conflict->file, conflict->ctarget);
+							} else {
+								printf(_("%s: %s exists in filesystem\n"),
+										conflict->target, conflict->file);
+							}
 							break;
 					}
 					alpm_fileconflict_free(conflict);

@@ -3,7 +3,7 @@
 #   pacman-db-upgrade - upgrade the local pacman db to a newer format
 #   @configure_input@
 #
-#   Copyright (c) 2010-2016 Pacman Development Team <pacman-dev@archlinux.org>
+#   Copyright (c) 2010-2017 Pacman Development Team <pacman-dev@archlinux.org>
 #
 #   This program is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -30,7 +30,10 @@ declare -r myver='@PACKAGE_VERSION@'
 
 m4_include(library/output_format.sh)
 
-m4_include(library/parseopts.sh)
+LIBRARY=${LIBRARY:-'@libmakepkgdir@'}
+
+# Import parseopts.sh
+source "$LIBRARY"/util/parseopts.sh
 
 usage() {
 	printf "pacman-db-upgrade (pacman) %s\n" "${myver}"
@@ -40,7 +43,7 @@ usage() {
 	printf -- "$(gettext "Usage: %s [options]")\n" "$0"
 	echo
 	printf -- "$(gettext "options:")\n"
-	printf -- "$(gettext "  -b, --dbpath <path>  set an alternate database location")\n"
+	printf -- "$(gettext "  -d, --dbpath <path>  set an alternate database location")\n"
 	printf -- "$(gettext "  -h, --help           show this help message and exit")\n"
 	printf -- "$(gettext "  -r, --root <path>    set an alternate installation root")\n"
 	printf -- "$(gettext "  -V, --version        show version information and exit")\n"
@@ -52,7 +55,7 @@ usage() {
 version() {
 	printf "pacman-db-upgrade (pacman) %s\n" "$myver"
 	printf -- "$(gettext "\
-Copyright (c) 2010-2016 Pacman Development Team <pacman-dev@archlinux.org>.\n\
+Copyright (c) 2010-2017 Pacman Development Team <pacman-dev@archlinux.org>.\n\
 This is free software; see the source for copying conditions.\n\
 There is NO WARRANTY, to the extent permitted by law.\n")"
 }

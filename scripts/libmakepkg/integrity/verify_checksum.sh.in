@@ -2,7 +2,7 @@
 #
 #   verify_checksum.sh - functions for checking source checksums
 #
-#   Copyright (c) 2014-2016 Pacman Development Team <pacman-dev@archlinux.org>
+#   Copyright (c) 2014-2017 Pacman Development Team <pacman-dev@archlinux.org>
 #
 #   This program is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -82,8 +82,8 @@ verify_integrity_one() {
 		return 1
 	fi
 
-	local realsum="$(openssl dgst -${integ} "$file")"
-	realsum="${realsum##* }"
+	local realsum="$("${integ}sum" "$file")"
+	realsum="${realsum%% *}"
 	if [[ ${expectedsum,,} = "$realsum" ]]; then
 		printf '%s\n' "$(gettext "Passed")" >&2
 	else

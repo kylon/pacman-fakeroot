@@ -120,10 +120,11 @@ AC_ARG_WITH(ldconfig,
 		[set the full path to ldconfig]),
 	[LDCONFIG=$withval], [LDCONFIG=/sbin/ldconfig])
 
-# Help line for using OpenSSL
-AC_ARG_WITH(openssl,
-	AS_HELP_STRING([--with-openssl], [use OpenSSL crypto implementations instead of internal routines]),
-	[], [with_openssl=check])
+# Help line for selecting a crypto library
+AC_ARG_WITH(crypto,
+	AS_HELP_STRING([--with-crypto={openssl|nettle}],
+		[select crypto implementation @<:@default=openssl@:>@]),
+	[with_crypto=$withval], [with_crypto=openssl])
 
 # Help line for using gpgme
 AC_ARG_WITH(gpgme,
@@ -131,9 +132,9 @@ AC_ARG_WITH(gpgme,
 	[], [with_gpgme=check])
 
 # Help line for using libcurl
-AC_ARG_WITH(curl,
+AC_ARG_WITH(libcurl,
 	AS_HELP_STRING([--with-libcurl], [use libcurl for the internal downloader]),
-	[], [with_curl=check])
+	[], [with_libcurl=check])
 
 # Help line for documentation
 AC_ARG_ENABLE(doc,
@@ -220,22 +221,33 @@ PKG_CHECK_MODULES(LIBARCHIVE, [libarchive >= 2.8.0], ,
 
 # Check for OpenSSL
 have_openssl=no
-if test "x$with_openssl" != "xno"; then
+have_nettle=no
+if test "x$with_crypto" = "xnettle"; then
+	PKG_CHECK_MODULES(NETTLE, [nettle],
+		[AC_DEFINE(HAVE_LIBNETTLE, 1, [Define whether to use nettle]) have_nettle=yes], have_nettle=no)
+	if test "x$have_nettle" = xno -a "x$with_crypto" = xnettle; then
+		AC_MSG_ERROR([*** nettle support requested but libraries not found])
+	fi
+else if test "x$with_crypto" = "xopenssl"; then
 	PKG_CHECK_MODULES(LIBSSL, [libcrypto],
 		[AC_DEFINE(HAVE_LIBSSL, 1, [Define if libcrypto is available]) have_openssl=yes], have_openssl=no)
-	if test "x$have_openssl" = xno -a "x$with_openssl" = xyes; then
+	if test "x$have_openssl" = xno; then
 		AC_MSG_ERROR([*** openssl support requested but libraries not found])
 	fi
+else
+	AC_MSG_ERROR([*** unknown crypto support library requested - $with_crypto])
+fi
 fi
 AM_CONDITIONAL(HAVE_LIBSSL, [test "$have_openssl" = "yes"])
+AM_CONDITIONAL(HAVE_LIBNETTLE, [test "$have_nettle" = "yes"])
 
 # Check for libcurl
 have_libcurl=no
 if test "x$with_libcurl" != "xno"; then
-	PKG_CHECK_MODULES(LIBCURL, [libcurl >= 7.19.4],
+	PKG_CHECK_MODULES(LIBCURL, [libcurl >= 7.32.0],
 		[AC_DEFINE(HAVE_LIBCURL, 1, [Define if libcurl is available]) have_libcurl=yes], have_libcurl=no)
 	if test "x$have_libcurl" = xno -a "x$with_libcurl" = xyes; then
-		AC_MSG_ERROR([*** libcurl >= 7.19.4 is required for internal downloader support])
+		AC_MSG_ERROR([*** libcurl >= 7.32.0 is required for internal downloader support])
 	fi
 fi
 AM_CONDITIONAL(HAVE_LIBCURL, [test "$have_libcurl" = "yes"])
@@ -308,7 +320,6 @@ PATH_MAX_DEFINED
 AC_FUNC_FORK
 AC_FUNC_GETMNTENT
 AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
-AC_FUNC_MALLOC
 AC_FUNC_MKTIME
 AC_FUNC_STRCOLL
 AC_CHECK_FUNCS([dup2 getcwd getmntinfo gettimeofday memmove memset \
@@ -327,12 +338,11 @@ AC_CHECK_MEMBERS([struct statfs.f_flags],,,[[#include <sys/param.h>
 GCC_VISIBILITY_CC
 
 # Host-dependant definitions
+DEFAULT_DUFLAGS=" -sk --apparent-size"
 INODECMD="stat -c '%i %n'"
 OWNERCMD="stat -c '%u:%g'"
 MODECMD="stat -c '%a'"
-SIZECMD="stat -c %s"
 SEDINPLACE="sed --follow-symlinks -i"
-DUFLAGS="-sk --apparent-size"
 STRIP_BINARIES="--strip-all"
 STRIP_SHARED="--strip-unneeded"
 STRIP_STATIC="--strip-debug"
@@ -341,35 +351,36 @@ case "${host_os}" in
 		INODECMD="stat -f '%i %N'"
 		OWNERCMD="stat -f '%u:%g'"
 		MODECMD="stat -f '%Lp'"
-		SIZECMD="stat -f %z"
 		SEDINPLACE="sed -i \"\""
-		DUFLAGS="-sk"
+		DEFAULT_DUFLAGS=" -sk"
 		;;
 	darwin*)
 		host_os_darwin=yes
 		INODECMD="/usr/bin/stat -f '%i %N'"
 		OWNERCMD="/usr/bin/stat -f '%u:%g'"
 		MODECMD="/usr/bin/stat -f '%Lp'"
-		SIZECMD="/usr/bin/stat -f %z"
 		SEDINPLACE="/usr/bin/sed -i ''"
-		DUFLAGS="-sk"
+		DEFAULT_DUFLAGS=" -sk"
 		STRIP_BINARIES=""
 		STRIP_SHARED="-S"
 		STRIP_STATIC="-S"
 		;;
 esac
-
 AM_CONDITIONAL([DARWIN], test "x$host_os_darwin" = "xyes")
 AC_PATH_PROGS([DUPATH], [du], [du], [/usr/bin$PATH_SEPARATOR/bin] )
 AC_SUBST(INODECMD)
 AC_SUBST(OWNERCMD)
 AC_SUBST(MODECMD)
-AC_SUBST(SIZECMD)
 AC_SUBST(SEDINPLACE)
-AC_SUBST(DUFLAGS)
 AC_SUBST(STRIP_BINARIES)
 AC_SUBST(STRIP_SHARED)
 AC_SUBST(STRIP_STATIC)
+
+# Flags for du
+if test "${DUFLAGS+set}" != "set"; then
+    DUFLAGS="${DEFAULT_DUFLAGS}"
+fi
+AC_ARG_VAR(DUFLAGS, [flags for du, overriding the default])
 
 # Variables plugged into makepkg.conf
 CARCH="${host%%-*}"
@@ -519,7 +530,6 @@ test/pacman/Makefile
 test/pacman/tests/Makefile
 test/scripts/Makefile
 test/util/Makefile
-contrib/Makefile
 Makefile
 ])
 AC_OUTPUT
@@ -539,7 +549,7 @@ ${PACKAGE_NAME}:
     compiler               : ${CC}
     preprocessor flags     : ${CPPFLAGS}
     compiler flags         : ${WARNING_CFLAGS} ${CFLAGS}
-    library flags          : ${LIBS} ${LIBSSL_LIBS} ${LIBARCHIVE_LIBS} ${LIBCURL_LIBS} ${GPGME_LIBS}
+    library flags          : ${LIBS} ${LIBSSL_LIBS} ${NETTLE_LIBS} ${LIBARCHIVE_LIBS} ${LIBCURL_LIBS} ${GPGME_LIBS}
     linker flags           : ${LDFLAGS}
 
     Architecture           : ${CARCH}
@@ -547,7 +557,6 @@ ${PACKAGE_NAME}:
     File inode command     : ${INODECMD}
     File owner command     : ${OWNERCMD}
     File mode command      : ${MODECMD}
-    Filesize command       : ${SIZECMD}
     In-place sed command   : ${SEDINPLACE}
 
     libalpm version        : ${LIB_VERSION}
@@ -566,6 +575,7 @@ ${PACKAGE_NAME}:
     Use libcurl            : ${have_libcurl}
     Use GPGME              : ${have_gpgme}
     Use OpenSSL            : ${have_openssl}
+    Use nettle             : ${have_nettle}
     Run make in doc/ dir   : ${wantdoc} ${asciidoc}
     Doxygen support        : ${usedoxygen}
     debug support          : ${debug}

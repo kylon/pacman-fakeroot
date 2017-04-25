@@ -1,7 +1,7 @@
 /*
  *  remove.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005 by Christian Hamar <krics@linuxforum.hu>
@@ -189,6 +189,7 @@ static void remove_notify_needed_optdepends(alpm_handle_t *handle, alpm_list_t *
 					};
 					EVENT(handle, &event);
 				}
+				free(optstring);
 			}
 		}
 	}
@@ -439,8 +440,19 @@ static int unlink_file(alpm_handle_t *handle, alpm_pkg_t *oldpkg,
 {
 	struct stat buf;
 	char file[PATH_MAX];
+	int file_len;
 
-	snprintf(file, PATH_MAX, "%s%s", handle->root, fileobj->name);
+	file_len = snprintf(file, PATH_MAX, "%s%s", handle->root, fileobj->name);
+	if(file_len <= 0 || file_len >= PATH_MAX) {
+		/* 0 is a valid value from snprintf, but should be impossible here */
+		_alpm_log(handle, ALPM_LOG_DEBUG, "path too long to unlink %s%s\n",
+				handle->root, fileobj->name);
+		return -1;
+	} else if(file[file_len-1] == '/') {
+		/* trailing slashes cause errors and confusing messages if the user has
+		 * replaced a directory with a symlink */
+		file[--file_len] = '\0';
+	}
 
 	if(llstat(file, &buf)) {
 		_alpm_log(handle, ALPM_LOG_DEBUG, "file %s does not exist\n", file);

@@ -1,7 +1,7 @@
 /*
  *  db.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005 by Christian Hamar <krics@linuxforum.hu>
@@ -44,7 +44,7 @@
 
 /** Register a sync database of packages. */
 alpm_db_t SYMEXPORT *alpm_register_syncdb(alpm_handle_t *handle,
-		const char *treename, alpm_siglevel_t level)
+		const char *treename, int siglevel)
 {
 	alpm_list_t *i;
 
@@ -67,7 +67,7 @@ alpm_db_t SYMEXPORT *alpm_register_syncdb(alpm_handle_t *handle,
 		}
 	}
 
-	return _alpm_db_register_sync(handle, treename, level);
+	return _alpm_db_register_sync(handle, treename, siglevel);
 }
 
 /* Helper function for alpm_db_unregister{_all} */
@@ -112,7 +112,7 @@ int SYMEXPORT alpm_db_unregister(alpm_db_t *db)
 	ASSERT(db != NULL, return -1);
 	/* Do not unregister a database if a transaction is on-going */
 	handle = db->handle;
-	handle->pm_errno = 0;
+	handle->pm_errno = ALPM_ERR_OK;
 	ASSERT(handle->trans == NULL, RET_ERR(handle, ALPM_ERR_TRANS_NOT_NULL, -1));
 
 	if(db == handle->db_local) {
@@ -179,7 +179,7 @@ int SYMEXPORT alpm_db_add_server(alpm_db_t *db, const char *url)
 
 	/* Sanity checks */
 	ASSERT(db != NULL, return -1);
-	db->handle->pm_errno = 0;
+	db->handle->pm_errno = ALPM_ERR_OK;
 	ASSERT(url != NULL && strlen(url) != 0, RET_ERR(db->handle, ALPM_ERR_WRONG_ARGS, -1));
 
 	newurl = sanitize_url(url);
@@ -206,7 +206,7 @@ int SYMEXPORT alpm_db_remove_server(alpm_db_t *db, const char *url)
 
 	/* Sanity checks */
 	ASSERT(db != NULL, return -1);
-	db->handle->pm_errno = 0;
+	db->handle->pm_errno = ALPM_ERR_OK;
 	ASSERT(url != NULL && strlen(url) != 0, RET_ERR(db->handle, ALPM_ERR_WRONG_ARGS, -1));
 
 	newurl = sanitize_url(url);
@@ -235,7 +235,7 @@ const char SYMEXPORT *alpm_db_get_name(const alpm_db_t *db)
 }
 
 /** Get the signature verification level for a database. */
-alpm_siglevel_t SYMEXPORT alpm_db_get_siglevel(alpm_db_t *db)
+int SYMEXPORT alpm_db_get_siglevel(alpm_db_t *db)
 {
 	ASSERT(db != NULL, return -1);
 	if(db->siglevel & ALPM_SIG_USE_DEFAULT) {
@@ -249,7 +249,7 @@ alpm_siglevel_t SYMEXPORT alpm_db_get_siglevel(alpm_db_t *db)
 int SYMEXPORT alpm_db_get_valid(alpm_db_t *db)
 {
 	ASSERT(db != NULL, return -1);
-	db->handle->pm_errno = 0;
+	db->handle->pm_errno = ALPM_ERR_OK;
 	return db->ops->validate(db);
 }
 
@@ -258,7 +258,7 @@ alpm_pkg_t SYMEXPORT *alpm_db_get_pkg(alpm_db_t *db, const char *name)
 {
 	alpm_pkg_t *pkg;
 	ASSERT(db != NULL, return NULL);
-	db->handle->pm_errno = 0;
+	db->handle->pm_errno = ALPM_ERR_OK;
 	ASSERT(name != NULL && strlen(name) != 0,
 			RET_ERR(db->handle, ALPM_ERR_WRONG_ARGS, NULL));
 
@@ -273,7 +273,7 @@ alpm_pkg_t SYMEXPORT *alpm_db_get_pkg(alpm_db_t *db, const char *name)
 alpm_list_t SYMEXPORT *alpm_db_get_pkgcache(alpm_db_t *db)
 {
 	ASSERT(db != NULL, return NULL);
-	db->handle->pm_errno = 0;
+	db->handle->pm_errno = ALPM_ERR_OK;
 	return _alpm_db_get_pkgcache(db);
 }
 
@@ -292,7 +292,7 @@ alpm_group_t SYMEXPORT *alpm_db_get_group(alpm_db_t *db, const char *name)
 alpm_list_t SYMEXPORT *alpm_db_get_groupcache(alpm_db_t *db)
 {
 	ASSERT(db != NULL, return NULL);
-	db->handle->pm_errno = 0;
+	db->handle->pm_errno = ALPM_ERR_OK;
 
 	return _alpm_db_get_groupcache(db);
 }
@@ -301,13 +301,13 @@ alpm_list_t SYMEXPORT *alpm_db_get_groupcache(alpm_db_t *db)
 alpm_list_t SYMEXPORT *alpm_db_search(alpm_db_t *db, const alpm_list_t *needles)
 {
 	ASSERT(db != NULL, return NULL);
-	db->handle->pm_errno = 0;
+	db->handle->pm_errno = ALPM_ERR_OK;
 
 	return _alpm_db_search(db, needles);
 }
 
 /** Sets the usage bitmask for a repo */
-int SYMEXPORT alpm_db_set_usage(alpm_db_t *db, alpm_db_usage_t usage)
+int SYMEXPORT alpm_db_set_usage(alpm_db_t *db, int usage)
 {
 	ASSERT(db != NULL, return -1);
 	db->usage = usage;
@@ -315,7 +315,7 @@ int SYMEXPORT alpm_db_set_usage(alpm_db_t *db, alpm_db_usage_t usage)
 }
 
 /** Gets the usage bitmask for a repo */
-int SYMEXPORT alpm_db_get_usage(alpm_db_t *db, alpm_db_usage_t *usage)
+int SYMEXPORT alpm_db_get_usage(alpm_db_t *db, int *usage)
 {
 	ASSERT(db != NULL, return -1);
 	ASSERT(usage != NULL, return -1);

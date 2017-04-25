@@ -4,7 +4,7 @@
 #   repo-remove - remove a package entry from a given repo database file
 #   @configure_input@
 #
-#   Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+#   Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
 #
 #   This program is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -94,7 +94,7 @@ version() {
 	cmd=${0##*/}
 	printf "%s (pacman) %s\n\n" "$cmd" "$myver"
 	printf -- "$(gettext "\
-Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>\n\n\
+Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>\n\n\
 This is free software; see the source for copying conditions.\n\
 There is NO WARRANTY, to the extent permitted by law.\n")"
 }
@@ -151,9 +151,9 @@ db_write_delta() {
 		echo -e "%DELTAS%" >"$deltas"
 	fi
 	# get md5sum and compressed size of package
-	md5sum=$(openssl dgst -md5 "$deltafile")
-	md5sum=${md5sum##* }
-	csize=$(@SIZECMD@ -L "$deltafile")
+	md5sum=$(md5sum "$deltafile")
+	md5sum=${md5sum%% *}
+	csize=$(wc -c "$deltafile" | cut -d' ' -f1)
 
 	oldfile=$(xdelta3 printhdr "$deltafile" | grep "XDELTA filename (source)" | sed 's/.*: *//')
 	newfile=$(xdelta3 printhdr "$deltafile" | grep "XDELTA filename (output)" | sed 's/.*: *//')
@@ -368,23 +368,23 @@ db_write_entry() {
 			error "$(gettext "Cannot use armored signatures for packages: %s")" "$pkgfile.sig"
 			return 1
 		fi
-		pgpsigsize=$(@SIZECMD@ -L "$pkgfile.sig")
+		pgpsigsize=$(wc -c "$pkgfile.sig" | cut -d' ' -f1)
 		if (( pgpsigsize > 16384 )); then
 			error "$(gettext "Invalid package signature file '%s'.")" "$pkgfile.sig"
 			return 1
 		fi
 		msg2 "$(gettext "Adding package signature...")"
-		pgpsig=$(openssl base64 -in "$pkgfile.sig" | tr -d '\n')
+		pgpsig=$(base64 "$pkgfile.sig" | tr -d '\n')
 	fi
 
-	csize=$(@SIZECMD@ -L "$pkgfile")
+	csize=$(wc -c "$pkgfile" | cut -d' ' -f1)
 
 	# compute checksums
 	msg2 "$(gettext "Computing checksums...")"
-	md5sum=$(openssl dgst -md5 "$pkgfile")
-	md5sum=${md5sum##* }
-	sha256sum=$(openssl dgst -sha256 "$pkgfile")
-	sha256sum=${sha256sum##* }
+	md5sum=$(md5sum "$pkgfile")
+	md5sum=${md5sum%% *}
+	sha256sum=$(sha256sum "$pkgfile")
+	sha256sum=${sha256sum%% *}
 
 	# remove an existing entry if it exists, ignore failures
 	db_remove_entry "$pkgname"
@@ -455,7 +455,7 @@ db_write_entry() {
 	msg2 "$(gettext "Creating '%s' db entry...")" 'files'
 	local files_path="$tmpdir/files/$pkgname-$pkgver/files"
 	echo "%FILES%" >"$files_path"
-	bsdtar --exclude='^.*' -tf "$pkgfile" >>"$files_path"
+	bsdtar --exclude='^.*' -tf "$pkgfile" | LC_ALL=C sort -u >>"$files_path"
 
 	if (( RMEXISTING )); then
 		msg2 "$(gettext "Removing old package file '%s'")" "$oldfilename"
@@ -501,7 +501,7 @@ elephant() {
 		                 "ZL9JFFZeAa0a2+lKjL2anpYfV+0Zx9LJ+/MC8nRayuDlSNy2rfAPibOzsiWHL0jL" \
 		                 "SsjFAQAA"
 		;;
-	esac | openssl base64 -d | gzip -d
+	esac | base64 -d | gzip -d
 }
 
 prepare_repo_db() {
@@ -617,7 +617,7 @@ remove() {
 rotate_db() {
 	dirname=${LOCKFILE%/*}
 
-	pushd $dirname >/dev/null
+	pushd "$dirname" >/dev/null
 
 	for repo in "db" "files"; do
 		filename=${REPO_DB_PREFIX}.${repo}.${REPO_DB_SUFFIX}

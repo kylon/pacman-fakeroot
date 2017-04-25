@@ -2,7 +2,7 @@
 #
 #   pkgver.sh - Check the 'pkgver' variable conforms to requirements.
 #
-#   Copyright (c) 2014-2016 Pacman Development Team <pacman-dev@archlinux.org>
+#   Copyright (c) 2014-2017 Pacman Development Team <pacman-dev@archlinux.org>
 #
 #   This program is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -35,8 +35,8 @@ check_pkgver() {
 		return 1
 	fi
 
-	if [[ $1 = *[[:space:]:-]* ]]; then
-		error "$(gettext "%s is not allowed to contain colons, hyphens or whitespace.")" "pkgver"
+	if [[ $1 = *[[:space:]/:-]* ]]; then
+		error "$(gettext "%s is not allowed to contain colons, forward slashes, hyphens or whitespace.")" "pkgver"
 		return 1
 	fi
 }

@@ -1,7 +1,7 @@
 /*
  *  package.h
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2006 by David Kimpe <dnaku@frugalware.org>
@@ -21,8 +21,8 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _ALPM_PACKAGE_H
-#define _ALPM_PACKAGE_H
+#ifndef ALPM_PACKAGE_H
+#define ALPM_PACKAGE_H
 
 #include <sys/types.h> /* off_t */
 
@@ -52,13 +52,15 @@ struct pkg_operations {
 	const char *(*get_arch) (alpm_pkg_t *);
 	off_t (*get_isize) (alpm_pkg_t *);
 	alpm_pkgreason_t (*get_reason) (alpm_pkg_t *);
-	alpm_pkgvalidation_t (*get_validation) (alpm_pkg_t *);
+	int (*get_validation) (alpm_pkg_t *);
 	int (*has_scriptlet) (alpm_pkg_t *);
 
 	alpm_list_t *(*get_licenses) (alpm_pkg_t *);
 	alpm_list_t *(*get_groups) (alpm_pkg_t *);
 	alpm_list_t *(*get_depends) (alpm_pkg_t *);
 	alpm_list_t *(*get_optdepends) (alpm_pkg_t *);
+	alpm_list_t *(*get_checkdepends) (alpm_pkg_t *);
+	alpm_list_t *(*get_makedepends) (alpm_pkg_t *);
 	alpm_list_t *(*get_conflicts) (alpm_pkg_t *);
 	alpm_list_t *(*get_provides) (alpm_pkg_t *);
 	alpm_list_t *(*get_replaces) (alpm_pkg_t *);
@@ -112,6 +114,8 @@ struct __alpm_pkg_t {
 	alpm_list_t *backup;
 	alpm_list_t *depends;
 	alpm_list_t *optdepends;
+	alpm_list_t *checkdepends;
+	alpm_list_t *makedepends;
 	alpm_list_t *conflicts;
 	alpm_list_t *provides;
 	alpm_list_t *deltas;
@@ -130,11 +134,14 @@ struct __alpm_pkg_t {
 		char *file;
 	} origin_data;
 
-	alpm_dbinfrq_t infolevel;
-	alpm_pkgvalidation_t validation;
 	alpm_pkgfrom_t origin;
 	alpm_pkgreason_t reason;
 	int scriptlet;
+
+	/* Bitfield from alpm_dbinfrq_t */
+	int infolevel;
+	/* Bitfield from alpm_pkgvalidation_t */
+	int validation;
 };
 
 alpm_file_t *_alpm_file_copy(alpm_file_t *dest, const alpm_file_t *src);
@@ -145,14 +152,14 @@ void _alpm_pkg_free(alpm_pkg_t *pkg);
 void _alpm_pkg_free_trans(alpm_pkg_t *pkg);
 
 int _alpm_pkg_validate_internal(alpm_handle_t *handle,
-		const char *pkgfile, alpm_pkg_t *syncpkg, alpm_siglevel_t level,
-		alpm_siglist_t **sigdata, alpm_pkgvalidation_t *validation);
+		const char *pkgfile, alpm_pkg_t *syncpkg, int level,
+		alpm_siglist_t **sigdata, int *validation);
 alpm_pkg_t *_alpm_pkg_load_internal(alpm_handle_t *handle,
 		const char *pkgfile, int full);
 
 int _alpm_pkg_cmp(const void *p1, const void *p2);
 int _alpm_pkg_compare_versions(alpm_pkg_t *local_pkg, alpm_pkg_t *pkg);
 
-#endif /* _ALPM_PACKAGE_H */
+#endif /* ALPM_PACKAGE_H */
 
 /* vim: set noet: */

@@ -1,7 +1,7 @@
 /*
  *  diskspace.c
  *
- *  Copyright (c) 2010-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2010-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -348,11 +348,11 @@ static int check_mountpoint(alpm_handle_t *handle, alpm_mountpoint_t *mp)
 	_alpm_log(handle, ALPM_LOG_DEBUG,
 			"partition %s, needed %jd, cushion %ju, free %ju\n",
 			mp->mount_dir, (intmax_t)mp->max_blocks_needed,
-			(uintmax_t)cushion, (uintmax_t)mp->fsp.f_bfree);
-	if(needed >= 0 && (fsblkcnt_t)needed > mp->fsp.f_bfree) {
+			(uintmax_t)cushion, (uintmax_t)mp->fsp.f_bavail);
+	if(needed >= 0 && (fsblkcnt_t)needed > mp->fsp.f_bavail) {
 		_alpm_log(handle, ALPM_LOG_ERROR,
 				_("Partition %s too full: %jd blocks needed, %ju blocks free\n"),
-				mp->mount_dir, (intmax_t)needed, (uintmax_t)mp->fsp.f_bfree);
+				mp->mount_dir, (intmax_t)needed, (uintmax_t)mp->fsp.f_bavail);
 		return 1;
 	}
 	return 0;

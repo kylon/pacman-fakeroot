@@ -1,7 +1,7 @@
 /*
  *  cleanupdelta.c : return list of unused delta in a given sync database
  *
- *  Copyright (c) 2011-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2011-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,11 +68,11 @@ static void checkdbs(alpm_list_t *dbnames)
 {
 	alpm_db_t *db = NULL;
 	alpm_list_t *i;
-	const alpm_siglevel_t level = ALPM_SIG_DATABASE | ALPM_SIG_DATABASE_OPTIONAL;
+	const int siglevel = ALPM_SIG_DATABASE | ALPM_SIG_DATABASE_OPTIONAL;
 
 	for(i = dbnames; i; i = alpm_list_next(i)) {
 		const char *dbname = i->data;
-		db = alpm_register_syncdb(handle, dbname, level);
+		db = alpm_register_syncdb(handle, dbname, siglevel);
 		if(db == NULL) {
 			fprintf(stderr, "error: could not register sync database '%s' (%s)\n",
 					dbname, alpm_strerror(alpm_errno(handle)));

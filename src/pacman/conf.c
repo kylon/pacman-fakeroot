@@ -1,7 +1,7 @@
 /*
  *  conf.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -325,10 +325,10 @@ int config_set_arch(const char *arch)
  * @param linenum current line number in file
  * @return 0 on success, 1 on any parsing error
  */
-static int process_siglevel(alpm_list_t *values, alpm_siglevel_t *storage,
-		alpm_siglevel_t *storage_mask, const char *file, int linenum)
+static int process_siglevel(alpm_list_t *values, int *storage,
+		int *storage_mask, const char *file, int linenum)
 {
-	alpm_siglevel_t level = *storage, mask = *storage_mask;
+	int level = *storage, mask = *storage_mask;
 	alpm_list_t *i;
 	int ret = 0;
 
@@ -421,13 +421,12 @@ static int process_siglevel(alpm_list_t *values, alpm_siglevel_t *storage,
 }
 
 /**
- * Merge the package entires of two signature verification levels.
+ * Merge the package entries of two signature verification levels.
  * @param base initial siglevel
- * @param over overridden siglevel
+ * @param over overriding siglevel
  * @return merged siglevel
  */
-static alpm_siglevel_t merge_siglevel(alpm_siglevel_t base,
-		alpm_siglevel_t over, alpm_siglevel_t mask)
+static int merge_siglevel(int base, int over, int mask)
 {
 	return mask ? (over & mask) | (base & ~mask) : over;
 }
@@ -499,6 +498,8 @@ static int _parse_options(const char *key, char *value,
 				config->color = isatty(fileno(stdout)) ? PM_COLOR_ON : PM_COLOR_OFF;
 				enable_colors(config->color);
 			}
+		} else if(strcmp(key, "DisableDownloadTimeout") == 0) {
+			config->disable_dl_timeout = 1;
 		} else {
 			pm_printf(ALPM_LOG_WARNING,
 					_("config file %s, line %d: directive '%s' in section '%s' not recognized.\n"),
@@ -782,6 +783,8 @@ static int setup_libalpm(void)
 		alpm_option_set_cachedirs(handle, config->cachedirs);
 	}
 
+	alpm_option_set_overwrite_files(handle, config->overwrite_files);
+
 	alpm_option_set_default_siglevel(handle, config->siglevel);
 
 	config->localfilesiglevel = merge_siglevel(config->siglevel,
@@ -816,6 +819,8 @@ static int setup_libalpm(void)
 	alpm_option_set_noupgrades(handle, config->noupgrade);
 	alpm_option_set_noextracts(handle, config->noextract);
 
+	alpm_option_set_disable_dl_timeout(handle, config->disable_dl_timeout);
+
 	for(i = config->assumeinstalled; i; i = i->next) {
 		char *entry = i->data;
 		alpm_depend_t *dep = alpm_dep_from_string(entry);
@@ -845,11 +850,11 @@ struct section_t {
 	int depth;
 };
 
-static int process_usage(alpm_list_t *values, alpm_db_usage_t *usage,
+static int process_usage(alpm_list_t *values, int *usage,
 		const char *file, int linenum)
 {
 	alpm_list_t *i;
-	alpm_db_usage_t level = *usage;
+	int level = *usage;
 	int ret = 0;
 
 	for(i = values; i; i = i->next) {

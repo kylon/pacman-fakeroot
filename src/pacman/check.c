@@ -1,7 +1,7 @@
 /*
  *  check.c
  *
- *  Copyright (c) 2012-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2012-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -368,7 +368,6 @@ int check_pkg_full(alpm_pkg_t *pkg)
 		}
 
 		if(type == AE_IFREG) {
-			/* TODO: these are expected to be changed with backup files */
 			file_errors += check_file_size(pkgname, filepath, &st, entry, backup);
 			/* file_errors += check_file_md5sum(pkgname, filepath, &st, entry, backup); */
 		}

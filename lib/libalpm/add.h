@@ -1,7 +1,7 @@
 /*
  *  add.h
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -17,8 +17,8 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _ALPM_ADD_H
-#define _ALPM_ADD_H
+#ifndef ALPM_ADD_H
+#define ALPM_ADD_H
 
 #include "db.h"
 #include "alpm_list.h"
@@ -26,6 +26,6 @@
 
 int _alpm_upgrade_packages(alpm_handle_t *handle);
 
-#endif /* _ALPM_ADD_H */
+#endif /* ALPM_ADD_H */
 
 /* vim: set noet: */

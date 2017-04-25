@@ -1,7 +1,7 @@
 /*
  *  download.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -90,8 +90,8 @@ static void inthandler(int UNUSED signum)
 	dload_interrupted = ABORT_SIGINT;
 }
 
-static int dload_progress_cb(void *file, double dltotal, double dlnow,
-		double UNUSED ultotal, double UNUSED ulnow)
+static int dload_progress_cb(void *file, curl_off_t dltotal, curl_off_t dlnow,
+		curl_off_t UNUSED ultotal, curl_off_t UNUSED ulnow)
 {
 	struct dload_payload *payload = (struct dload_payload *)file;
 	off_t current_size, total_size;
@@ -106,7 +106,7 @@ static int dload_progress_cb(void *file, double dltotal, double dlnow,
 		return 1;
 	}
 
-	current_size = payload->initial_size + (off_t)dlnow;
+	current_size = payload->initial_size + dlnow;
 
 	/* is our filesize still under any set limit? */
 	if(payload->max_size && current_size > payload->max_size) {
@@ -119,21 +119,31 @@ static int dload_progress_cb(void *file, double dltotal, double dlnow,
 		return 0;
 	}
 
-	total_size = payload->initial_size + (off_t)dltotal;
+	total_size = payload->initial_size + dltotal;
 
-	if(DOUBLE_EQ(dltotal, 0.0) || payload->prevprogress == total_size) {
+	if(dltotal == 0 || payload->prevprogress == total_size) {
 		return 0;
 	}
 
 	/* initialize the progress bar here to avoid displaying it when
-	 * a repo is up to date and nothing gets downloaded */
-	if(payload->prevprogress == 0) {
-		payload->handle->dlcb(payload->remote_name, 0, (off_t)dltotal);
-	}
-
+	 * a repo is up to date and nothing gets downloaded.
+	 * payload->handle->dlcb will receive the remote_name
+	 * and the following arguments:
+	 * 0, -1: download initialized
+	 * 0, 0: non-download event
+	 * x {x>0}, x: download complete
+	 * x {x>0, x<y}, y {y > 0}: download progress, expected total is known */
+	if(current_size == total_size) {
+		payload->handle->dlcb(payload->remote_name, dlnow, dltotal);
+	} else if(!payload->prevprogress) {
+		payload->handle->dlcb(payload->remote_name, 0, -1);
+	} else if(payload->prevprogress == current_size) {
+		payload->handle->dlcb(payload->remote_name, 0, 0);
+	} else {
 	/* do NOT include initial_size since it wasn't part of the package's
 	 * download_size (nor included in the total download size callback) */
-	payload->handle->dlcb(payload->remote_name, (off_t)dlnow, (off_t)dltotal);
+		payload->handle->dlcb(payload->remote_name, dlnow, dltotal);
+	}
 
 	payload->prevprogress = current_size;
 
@@ -236,47 +246,6 @@ static size_t dload_parseheader_cb(void *ptr, size_t size, size_t nmemb, void *u
 	return realsize;
 }
 
-static int dload_sockopt_cb(void *userdata, curl_socket_t curlfd,
-		curlsocktype purpose)
-{
-	alpm_handle_t *handle = userdata;
-	int optval = 1;
-
-	/* this whole method is to prevent FTP control connections from going sour
-	 * during a long data transfer; crappy firewalls love to drop otherwise idle
-	 * connections if there is no traffic. */
-	if(purpose != CURLSOCKTYPE_IPCXN) {
-		return 0;
-	}
-
-	/* don't abort operation if any setsockopt fails, just log to debug */
-	if(setsockopt(curlfd, SOL_SOCKET, SO_KEEPALIVE, (void *)&optval,
-				sizeof(optval)) < 0) {
-		_alpm_log(handle, ALPM_LOG_DEBUG,
-				"Failed to set SO_KEEPALIVE on fd %d\n", curlfd);
-	}
-	else {
-#ifdef TCP_KEEPIDLE
-		optval = 60;
-		if(setsockopt(curlfd, IPPROTO_TCP, TCP_KEEPIDLE, (void *)&optval,
-					sizeof(optval)) < 0) {
-			_alpm_log(handle, ALPM_LOG_DEBUG,
-					"Failed to set TCP_KEEPIDLE on fd %d\n", curlfd);
-		}
-#endif
-#ifdef TCP_KEEPINTVL
-		optval = 60;
-		if(setsockopt(curlfd, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&optval,
-					sizeof(optval)) < 0) {
-			_alpm_log(handle, ALPM_LOG_DEBUG,
-					"Failed to set TCP_KEEPINTVL on fd %d\n", curlfd);
-		}
-#endif
-	}
-
-	return 0;
-}
-
 static void curl_set_handle_opts(struct dload_payload *payload,
 		CURL *curl, char *error_buffer)
 {
@@ -293,15 +262,18 @@ static void curl_set_handle_opts(struct dload_payload *payload,
 	curl_easy_setopt(curl, CURLOPT_FILETIME, 1L);
 	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
 	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-	curl_easy_setopt(curl, CURLOPT_PROGRESSFUNCTION, dload_progress_cb);
-	curl_easy_setopt(curl, CURLOPT_PROGRESSDATA, (void *)payload);
-	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
-	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 10L);
+	curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, dload_progress_cb);
+	curl_easy_setopt(curl, CURLOPT_XFERINFODATA, (void *)payload);
+	if(!handle->disable_dl_timeout) {
+		curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
+		curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 10L);
+	}
 	curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, dload_parseheader_cb);
-	curl_easy_setopt(curl, CURLOPT_WRITEHEADER, (void *)payload);
+	curl_easy_setopt(curl, CURLOPT_HEADERDATA, (void *)payload);
 	curl_easy_setopt(curl, CURLOPT_NETRC, CURL_NETRC_OPTIONAL);
-	curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, dload_sockopt_cb);
-	curl_easy_setopt(curl, CURLOPT_SOCKOPTDATA, (void *)handle);
+	curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
+	curl_easy_setopt(curl, CURLOPT_TCP_KEEPIDLE, 60L);
+	curl_easy_setopt(curl, CURLOPT_TCP_KEEPINTVL, 60L);
 	curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
 
 	_alpm_log(handle, ALPM_LOG_DEBUG, "url: %s\n", payload->fileurl);
@@ -402,7 +374,7 @@ static int curl_download_internal(struct dload_payload *payload,
 	/* shortcut to our handle within the payload */
 	alpm_handle_t *handle = payload->handle;
 	CURL *curl = get_libcurl_handle(handle);
-	handle->pm_errno = 0;
+	handle->pm_errno = ALPM_ERR_OK;
 
 	/* make sure these are NULL */
 	FREE(payload->tempfile_name);
@@ -702,7 +674,7 @@ char SYMEXPORT *alpm_fetch_pkgurl(alpm_handle_t *handle, const char *url)
 		size_t len;
 
 		len = strlen(final_pkg_url) + 5;
-		MALLOC(payload.fileurl, len, RET_ERR(handle, ALPM_ERR_MEMORY, NULL));
+		MALLOC(payload.fileurl, len, free(final_file); RET_ERR(handle, ALPM_ERR_MEMORY, NULL));
 		snprintf(payload.fileurl, len, "%s.sig", final_pkg_url);
 
 		sig_filepath = filecache_find_url(handle, payload.fileurl);
@@ -750,6 +722,16 @@ void _alpm_dload_payload_reset(struct dload_payload *payload)
 	FREE(payload->content_disp_name);
 	FREE(payload->fileurl);
 	memset(payload, '\0', sizeof(*payload));
+}
+
+void _alpm_dload_payload_reset_for_retry(struct dload_payload *payload)
+{
+	ASSERT(payload, return);
+
+	FREE(payload->fileurl);
+	payload->initial_size += payload->prevprogress;
+	payload->prevprogress = 0;
+	payload->unlink_on_fail = 0;
 }
 
 /* vim: set noet: */

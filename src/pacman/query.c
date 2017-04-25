@@ -1,7 +1,7 @@
 /*
  *  query.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -84,8 +84,9 @@ static void print_query_fileowner(const char *filename, alpm_pkg_t *info)
 {
 	if(!config->quiet) {
 		const colstr_t *colstr = &config->colstr;
-		printf(_("%s is owned by %s%s %s%s\n"), filename, colstr->title,
-				alpm_pkg_get_name(info), colstr->version, alpm_pkg_get_version(info));
+		printf(_("%s is owned by %s%s %s%s%s\n"), filename, colstr->title,
+				alpm_pkg_get_name(info), colstr->version, alpm_pkg_get_version(info),
+				colstr->nocolor);
 	} else {
 		printf("%s\n", alpm_pkg_get_name(info));
 	}

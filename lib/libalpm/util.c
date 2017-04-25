@@ -1,7 +1,7 @@
 /*
  *  util.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005 by Christian Hamar <krics@linuxforum.hu>
@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <sys/wait.h>
+#include <sys/socket.h>
 #include <fnmatch.h>
 #include <poll.h>
 
@@ -40,9 +41,11 @@
 #ifdef HAVE_LIBSSL
 #include <openssl/md5.h>
 #include <openssl/sha.h>
-#else
-#include "md5.h"
-#include "sha2.h"
+#endif
+
+#ifdef HAVE_LIBNETTLE
+#include <nettle/md5.h>
+#include <nettle/sha2.h>
 #endif
 
 /* libalpm */
@@ -461,7 +464,6 @@ static int _alpm_chroot_write_to_child(alpm_handle_t *handle, int fd,
 		_alpm_cb_io out_cb, void *cb_ctx)
 {
 	ssize_t nwrite;
-	struct sigaction newaction, oldaction;
 
 	if(*buf_size == 0) {
 		/* empty buffer, ask the callback for more */
@@ -471,16 +473,7 @@ static int _alpm_chroot_write_to_child(alpm_handle_t *handle, int fd,
 		}
 	}
 
-	/* ignore SIGPIPE in case the pipe has been closed */
-	newaction.sa_handler = SIG_IGN;
-	sigemptyset(&newaction.sa_mask);
-	newaction.sa_flags = 0;
-	sigaction(SIGPIPE, &newaction, &oldaction);
-
-	nwrite = write(fd, buf, *buf_size);
-
-	/* restore previous SIGPIPE handler */
-	sigaction(SIGPIPE, &oldaction, NULL);
+	nwrite = send(fd, buf, *buf_size, MSG_NOSIGNAL);
 
 	if(nwrite != -1) {
 		/* write was successful, remove the written data from the buffer */
@@ -571,6 +564,9 @@ int _alpm_run_chroot(alpm_handle_t *handle, const char *cmd, char *const argv[],
 	int cwdfd;
 	int retval = 0;
 
+#define HEAD 1
+#define TAIL 0
+
 	/* save the cwd so we can restore it later */
 	OPEN(cwdfd, ".", O_RDONLY | O_CLOEXEC);
 	if(cwdfd < 0) {
@@ -590,13 +586,13 @@ int _alpm_run_chroot(alpm_handle_t *handle, const char *cmd, char *const argv[],
 	/* Flush open fds before fork() to avoid cloning buffers */
 	fflush(NULL);
 
-	if(pipe(child2parent_pipefd) == -1) {
+	if(socketpair(AF_UNIX, SOCK_STREAM, 0, child2parent_pipefd) == -1) {
 		_alpm_log(handle, ALPM_LOG_ERROR, _("could not create pipe (%s)\n"), strerror(errno));
 		retval = 1;
 		goto cleanup;
 	}
 
-	if(pipe(parent2child_pipefd) == -1) {
+	if(socketpair(AF_UNIX, SOCK_STREAM, 0, parent2child_pipefd) == -1) {
 		_alpm_log(handle, ALPM_LOG_ERROR, _("could not create pipe (%s)\n"), strerror(errno));
 		retval = 1;
 		goto cleanup;
@@ -615,13 +611,13 @@ int _alpm_run_chroot(alpm_handle_t *handle, const char *cmd, char *const argv[],
 		close(0);
 		close(1);
 		close(2);
-		while(dup2(child2parent_pipefd[1], 1) == -1 && errno == EINTR);
-		while(dup2(child2parent_pipefd[1], 2) == -1 && errno == EINTR);
-		while(dup2(parent2child_pipefd[0], 0) == -1 && errno == EINTR);
-		close(parent2child_pipefd[0]);
-		close(parent2child_pipefd[1]);
-		close(child2parent_pipefd[0]);
-		close(child2parent_pipefd[1]);
+		while(dup2(child2parent_pipefd[HEAD], 1) == -1 && errno == EINTR);
+		while(dup2(child2parent_pipefd[HEAD], 2) == -1 && errno == EINTR);
+		while(dup2(parent2child_pipefd[TAIL], 0) == -1 && errno == EINTR);
+		close(parent2child_pipefd[TAIL]);
+		close(parent2child_pipefd[HEAD]);
+		close(child2parent_pipefd[TAIL]);
+		close(child2parent_pipefd[HEAD]);
 		if(cwdfd >= 0) {
 			close(cwdfd);
 		}
@@ -650,20 +646,20 @@ int _alpm_run_chroot(alpm_handle_t *handle, const char *cmd, char *const argv[],
 		nfds_t nfds = 2;
 		struct pollfd fds[2], *child2parent = &(fds[0]), *parent2child = &(fds[1]);
 
-		child2parent->fd = child2parent_pipefd[0];
+		child2parent->fd = child2parent_pipefd[TAIL];
 		child2parent->events = POLLIN;
 		fcntl(child2parent->fd, F_SETFL, O_NONBLOCK);
-		close(child2parent_pipefd[1]);
-		close(parent2child_pipefd[0]);
+		close(child2parent_pipefd[HEAD]);
+		close(parent2child_pipefd[TAIL]);
 
 		if(stdin_cb) {
-			parent2child->fd = parent2child_pipefd[1];
+			parent2child->fd = parent2child_pipefd[HEAD];
 			parent2child->events = POLLOUT;
 			fcntl(parent2child->fd, F_SETFL, O_NONBLOCK);
 		} else {
 			parent2child->fd = -1;
 			parent2child->events = 0;
-			close(parent2child_pipefd[1]);
+			close(parent2child_pipefd[HEAD]);
 		}
 
 #define STOP_POLLING(p) do { close(p->fd); p->fd = -1; } while(0)
@@ -698,6 +694,8 @@ int _alpm_run_chroot(alpm_handle_t *handle, const char *cmd, char *const argv[],
 		}
 
 #undef STOP_POLLING
+#undef HEAD
+#undef TAIL
 
 		if(parent2child->fd != -1) {
 			close(parent2child->fd);
@@ -859,7 +857,7 @@ const char *_alpm_filecache_setup(alpm_handle_t *handle)
 	return cachedir;
 }
 
-#ifdef HAVE_LIBSSL
+#if defined  HAVE_LIBSSL || defined HAVE_LIBNETTLE
 /** Compute the MD5 message digest of a file.
  * @param path file path of file to compute  MD5 digest of
  * @param output string to hold computed MD5 digest
@@ -867,7 +865,11 @@ const char *_alpm_filecache_setup(alpm_handle_t *handle)
  */
 static int md5_file(const char *path, unsigned char output[16])
 {
+#if HAVE_LIBSSL
 	MD5_CTX ctx;
+#else /* HAVE_LIBNETTLE */
+	struct md5_ctx ctx;
+#endif
 	unsigned char *buf;
 	ssize_t n;
 	int fd;
@@ -880,13 +882,21 @@ static int md5_file(const char *path, unsigned char output[16])
 		return 1;
 	}
 
+#if HAVE_LIBSSL
 	MD5_Init(&ctx);
+#else /* HAVE_LIBNETTLE */
+	md5_init(&ctx);
+#endif
 
 	while((n = read(fd, buf, ALPM_BUFFER_SIZE)) > 0 || errno == EINTR) {
 		if(n < 0) {
 			continue;
 		}
+#if HAVE_LIBSSL
 		MD5_Update(&ctx, buf, n);
+#else /* HAVE_LIBNETTLE */
+		md5_update(&ctx, n, buf);
+#endif
 	}
 
 	close(fd);
@@ -896,20 +906,26 @@ static int md5_file(const char *path, unsigned char output[16])
 		return 2;
 	}
 
+#if HAVE_LIBSSL
 	MD5_Final(output, &ctx);
+#else /* HAVE_LIBNETTLE */
+	md5_digest(&ctx, MD5_DIGEST_SIZE, output);
+#endif
 	return 0;
 }
 
-/* third param is so we match the PolarSSL definition */
-/** Compute the SHA-224 or SHA-256 message digest of a file.
- * @param path file path of file to compute SHA2 digest of
- * @param output string to hold computed SHA2 digest
- * @param is224 use SHA-224 instead of SHA-256
+/** Compute the SHA-256 message digest of a file.
+ * @param path file path of file to compute SHA256 digest of
+ * @param output string to hold computed SHA256 digest
  * @return 0 on success, 1 on file open error, 2 on file read error
  */
-static int sha2_file(const char *path, unsigned char output[32], int is224)
+static int sha256_file(const char *path, unsigned char output[32])
 {
+#if HAVE_LIBSSL
 	SHA256_CTX ctx;
+#else /* HAVE_LIBNETTLE */
+	struct sha256_ctx ctx;
+#endif
 	unsigned char *buf;
 	ssize_t n;
 	int fd;
@@ -922,21 +938,21 @@ static int sha2_file(const char *path, unsigned char output[32], int is224)
 		return 1;
 	}
 
-	if(is224) {
-		SHA224_Init(&ctx);
-	} else {
-		SHA256_Init(&ctx);
-	}
+#if HAVE_LIBSSL
+	SHA256_Init(&ctx);
+#else /* HAVE_LIBNETTLE */
+	sha256_init(&ctx);
+#endif
 
 	while((n = read(fd, buf, ALPM_BUFFER_SIZE)) > 0 || errno == EINTR) {
 		if(n < 0) {
 			continue;
 		}
-		if(is224) {
-			SHA224_Update(&ctx, buf, n);
-		} else {
-			SHA256_Update(&ctx, buf, n);
-		}
+#if HAVE_LIBSSL
+		SHA256_Update(&ctx, buf, n);
+#else /* HAVE_LIBNETTLE */
+		sha256_update(&ctx, n, buf);
+#endif
 	}
 
 	close(fd);
@@ -946,14 +962,14 @@ static int sha2_file(const char *path, unsigned char output[32], int is224)
 		return 2;
 	}
 
-	if(is224) {
-		SHA224_Final(output, &ctx);
-	} else {
-		SHA256_Final(output, &ctx);
-	}
+#if HAVE_LIBSSL
+	SHA256_Final(output, &ctx);
+#else /* HAVE_LIBNETTLE */
+	sha256_digest(&ctx, SHA256_DIGEST_SIZE, output);
+#endif
 	return 0;
 }
-#endif
+#endif /* HAVE_LIBSSL || HAVE_LIBNETTLE */
 
 /** Create a string representing bytes in hexadecimal.
  * @param bytes the bytes to represent in hexadecimal
@@ -990,7 +1006,6 @@ char SYMEXPORT *alpm_compute_md5sum(const char *filename)
 
 	ASSERT(filename != NULL, return NULL);
 
-	/* defined above for OpenSSL, otherwise defined in md5.h */
 	if(md5_file(filename, output) > 0) {
 		return NULL;
 	}
@@ -1009,8 +1024,7 @@ char SYMEXPORT *alpm_compute_sha256sum(const char *filename)
 
 	ASSERT(filename != NULL, return NULL);
 
-	/* defined above for OpenSSL, otherwise defined in sha2.h */
-	if(sha2_file(filename, output, 0) > 0) {
+	if(sha256_file(filename, output) > 0) {
 		return NULL;
 	}
 

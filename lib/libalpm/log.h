@@ -1,7 +1,7 @@
 /*
  *  log.h
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -17,8 +17,8 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _ALPM_LOG_H
-#define _ALPM_LOG_H
+#ifndef ALPM_LOG_H
+#define ALPM_LOG_H
 
 #include "alpm.h"
 
@@ -27,6 +27,6 @@
 void _alpm_log(alpm_handle_t *handle, alpm_loglevel_t flag,
 		const char *fmt, ...) __attribute__((format(printf,3,4)));
 
-#endif /* _ALPM_LOG_H */
+#endif /* ALPM_LOG_H */
 
 /* vim: set noet: */

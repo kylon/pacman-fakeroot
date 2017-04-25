@@ -1,7 +1,7 @@
 /*
  *  callback.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -678,8 +678,13 @@ void cb_dl_progress(const char *filename, off_t file_xfered, off_t file_total)
 
 	const unsigned short cols = getcols();
 
-	if(config->noprogressbar || cols == 0 || file_total == -1) {
-		if(file_xfered == 0) {
+	/* Nothing has changed since last callback; stop here */
+	if(file_xfered == 0 && file_total == 0) {
+		return;
+	}
+
+	if(config->noprogressbar || cols == 0) {
+		if(file_xfered == 0 && file_total == -1) {
 			printf(_("downloading %s...\n"), filename);
 			fflush(stdout);
 		}
@@ -710,14 +715,9 @@ void cb_dl_progress(const char *filename, off_t file_xfered, off_t file_total)
 		total = file_total;
 	}
 
-	/* bogus values : stop here */
-	if(xfered > total || xfered < 0) {
-		return;
-	}
-
 	/* this is basically a switch on xfered: 0, total, and
 	 * anything else */
-	if(file_xfered == 0) {
+	if(file_xfered == 0 && file_total == -1) {
 		/* set default starting values, ensure we only call this once
 		 * if TotalDownload is enabled */
 		if(!totaldownload || (totaldownload && list_xfered == 0)) {
@@ -726,6 +726,9 @@ void cb_dl_progress(const char *filename, off_t file_xfered, off_t file_total)
 			rate_last = 0.0;
 			get_update_timediff(1);
 		}
+	} else if(xfered > total || xfered < 0) {
+		/* bogus values : stop here */
+		return;
 	} else if(file_xfered == file_total) {
 		/* compute final values */
 		int64_t timediff = get_time_ms() - initial_time;

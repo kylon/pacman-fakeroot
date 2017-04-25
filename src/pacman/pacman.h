@@ -1,7 +1,7 @@
 /*
  *  pacman.h
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -17,8 +17,8 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _PM_PACMAN_H
-#define _PM_PACMAN_H
+#ifndef PM_PACMAN_H
+#define PM_PACMAN_H
 
 #include <alpm_list.h>
 
@@ -40,6 +40,6 @@ int sync_prepare_execute(void);
 /* upgrade.c */
 int pacman_upgrade(alpm_list_t *targets);
 
-#endif /* _PM_PACMAN_H */
+#endif /* PM_PACMAN_H */
 
 /* vim: set noet: */

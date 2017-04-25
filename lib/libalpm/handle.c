@@ -1,7 +1,7 @@
 /*
  *  handle.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005, 2006 by Miklos Vajna <vmiklos@frugalware.org>
@@ -281,6 +281,12 @@ alpm_list_t SYMEXPORT *alpm_option_get_ignoregroups(alpm_handle_t *handle)
 {
 	CHECK_HANDLE(handle, return NULL);
 	return handle->ignoregroup;
+}
+
+alpm_list_t SYMEXPORT *alpm_option_get_overwrite_files(alpm_handle_t *handle)
+{
+	CHECK_HANDLE(handle, return NULL);
+	return handle->overwrite_files;
 }
 
 alpm_list_t SYMEXPORT *alpm_option_get_assumeinstalled(alpm_handle_t *handle)
@@ -657,6 +663,21 @@ int SYMEXPORT alpm_option_remove_ignoregroup(alpm_handle_t *handle, const char *
 	return _alpm_option_strlist_rem(handle, &(handle->ignoregroup), grp);
 }
 
+int SYMEXPORT alpm_option_add_overwrite_file(alpm_handle_t *handle, const char *glob)
+{
+	return _alpm_option_strlist_add(handle, &(handle->overwrite_files), glob);
+}
+
+int SYMEXPORT alpm_option_set_overwrite_files(alpm_handle_t *handle, alpm_list_t *globs)
+{
+	return _alpm_option_strlist_set(handle, &(handle->overwrite_files), globs);
+}
+
+int SYMEXPORT alpm_option_remove_overwrite_file(alpm_handle_t *handle, const char *glob)
+{
+	return _alpm_option_strlist_rem(handle, &(handle->overwrite_files), glob);
+}
+
 int SYMEXPORT alpm_option_add_assumeinstalled(alpm_handle_t *handle, const alpm_depend_t *dep)
 {
 	alpm_depend_t *depcpy;
@@ -777,7 +798,7 @@ int SYMEXPORT alpm_option_set_dbext(alpm_handle_t *handle, const char *dbext)
 }
 
 int SYMEXPORT alpm_option_set_default_siglevel(alpm_handle_t *handle,
-		alpm_siglevel_t level)
+		int level)
 {
 	CHECK_HANDLE(handle, return -1);
 #ifdef HAVE_LIBGPGME
@@ -790,14 +811,14 @@ int SYMEXPORT alpm_option_set_default_siglevel(alpm_handle_t *handle,
 	return 0;
 }
 
-alpm_siglevel_t SYMEXPORT alpm_option_get_default_siglevel(alpm_handle_t *handle)
+int SYMEXPORT alpm_option_get_default_siglevel(alpm_handle_t *handle)
 {
 	CHECK_HANDLE(handle, return -1);
 	return handle->siglevel;
 }
 
 int SYMEXPORT alpm_option_set_local_file_siglevel(alpm_handle_t *handle,
-		alpm_siglevel_t level)
+		int level)
 {
 	CHECK_HANDLE(handle, return -1);
 #ifdef HAVE_LIBGPGME
@@ -810,7 +831,7 @@ int SYMEXPORT alpm_option_set_local_file_siglevel(alpm_handle_t *handle,
 	return 0;
 }
 
-alpm_siglevel_t SYMEXPORT alpm_option_get_local_file_siglevel(alpm_handle_t *handle)
+int SYMEXPORT alpm_option_get_local_file_siglevel(alpm_handle_t *handle)
 {
 	CHECK_HANDLE(handle, return -1);
 	if(handle->localfilesiglevel & ALPM_SIG_USE_DEFAULT) {
@@ -821,7 +842,7 @@ alpm_siglevel_t SYMEXPORT alpm_option_get_local_file_siglevel(alpm_handle_t *han
 }
 
 int SYMEXPORT alpm_option_set_remote_file_siglevel(alpm_handle_t *handle,
-		alpm_siglevel_t level)
+		int level)
 {
 	CHECK_HANDLE(handle, return -1);
 #ifdef HAVE_LIBGPGME
@@ -834,7 +855,7 @@ int SYMEXPORT alpm_option_set_remote_file_siglevel(alpm_handle_t *handle,
 	return 0;
 }
 
-alpm_siglevel_t SYMEXPORT alpm_option_get_remote_file_siglevel(alpm_handle_t *handle)
+int SYMEXPORT alpm_option_get_remote_file_siglevel(alpm_handle_t *handle)
 {
 	CHECK_HANDLE(handle, return -1);
 	if(handle->remotefilesiglevel & ALPM_SIG_USE_DEFAULT) {
@@ -842,6 +863,16 @@ alpm_siglevel_t SYMEXPORT alpm_option_get_remote_file_siglevel(alpm_handle_t *ha
 	} else {
 		return handle->remotefilesiglevel;
 	}
+}
+
+int SYMEXPORT alpm_option_set_disable_dl_timeout(alpm_handle_t *handle,
+		unsigned short disable_dl_timeout)
+{
+	CHECK_HANDLE(handle, return -1);
+#ifdef HAVE_LIBCURL
+	handle->disable_dl_timeout = disable_dl_timeout;
+#endif
+	return 0;
 }
 
 /* vim: set noet: */

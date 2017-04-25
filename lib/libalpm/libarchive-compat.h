@@ -1,10 +1,10 @@
-#ifndef _LIBARCHIVE_COMPAT_H
-#define _LIBARCHIVE_COMPAT_H
+#ifndef LIBARCHIVE_COMPAT_H
+#define LIBARCHIVE_COMPAT_H
 
 /*
  * libarchive-compat.h
  *
- *  Copyright (c) 2013-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2013-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,6 +68,6 @@ static inline int _alpm_archive_read_support_filter_all(struct archive *archive)
 #endif
 }
 
-#endif /* _LIBARCHIVE_COMPAT_H */
+#endif /* LIBARCHIVE_COMPAT_H */
 
 /* vim: set noet: */

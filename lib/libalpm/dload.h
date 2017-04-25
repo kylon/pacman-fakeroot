@@ -1,7 +1,7 @@
 /*
  *  dload.h
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -17,8 +17,8 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _ALPM_DLOAD_H
-#define _ALPM_DLOAD_H
+#ifndef ALPM_DLOAD_H
+#define ALPM_DLOAD_H
 
 #include "alpm_list.h"
 #include "alpm.h"
@@ -47,10 +47,11 @@ struct dload_payload {
 };
 
 void _alpm_dload_payload_reset(struct dload_payload *payload);
+void _alpm_dload_payload_reset_for_retry(struct dload_payload *payload);
 
 int _alpm_download(struct dload_payload *payload, const char *localpath,
 		char **final_file, const char **final_url);
 
-#endif /* _ALPM_DLOAD_H */
+#endif /* ALPM_DLOAD_H */
 
 /* vim: set noet: */

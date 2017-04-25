@@ -1,39 +1,41 @@
 # enforce that all scripts have a --help and --version option
 AUTOMAKE_OPTIONS = std-options
-AM_INSTALLCHECK_STD_OPTIONS_EXEMPT = makepkg-wrapper
+AM_INSTALLCHECK_STD_OPTIONS_EXEMPT = \
+	makepkg-wrapper \
+	pacman-db-upgrade-wrapper \
+	pacman-key-wrapper \
+	pkgdelta-wrapper
 
 SUBDIRS = po
 
 bin_SCRIPTS = \
 	$(OURSCRIPTS) \
 	makepkg-template \
-	makepkg-wrapper \
 	repo-remove \
-	repo-elephant
+	repo-elephant \
+	$(WRAPPER)
 
 OURSCRIPTS = \
 	makepkg \
 	pacman-db-upgrade \
 	pacman-key \
-	pacman-optimize \
 	pkgdelta \
 	repo-add
 
 EXTRA_DIST = \
 	makepkg.sh.in \
 	makepkg-template.pl.in \
-	makepkg-wrapper.sh.in \
 	pacman-db-upgrade.sh.in \
 	pacman-key.sh.in \
-	pacman-optimize.sh.in \
 	pkgdelta.sh.in \
 	repo-add.sh.in \
+	wrapper.sh.in \
+	$(COMPLETION_DIST) \
 	$(LIBRARY) \
 	$(LIBMAKEPKG_DIST)
 
 LIBRARY = \
 	library/output_format.sh \
-	library/parseopts.sh \
 	library/human_to_size.sh \
 	library/size_to_human.sh \
 	library/term_colors.sh
@@ -48,11 +50,6 @@ LIBMAKEPKGDIRS = \
 	tidy \
 	util
 
-LIBMAKEPKG = \
-	libmakepkg/util/message.sh \
-	libmakepkg/util/option.sh \
-	libmakepkg/util/util.sh
-
 LIBMAKEPKG_IN = \
 	libmakepkg/integrity.sh \
 	libmakepkg/integrity/generate_checksum.sh \
@@ -61,6 +58,8 @@ LIBMAKEPKG_IN = \
 	libmakepkg/integrity/verify_signature.sh \
 	libmakepkg/lint_package.sh \
 	libmakepkg/lint_package/build_references.sh \
+	libmakepkg/lint_package/dotfiles.sh \
+	libmakepkg/lint_package/file_names.sh \
 	libmakepkg/lint_package/missing_backup.sh \
 	libmakepkg/lint_pkgbuild.sh \
 	libmakepkg/lint_pkgbuild/arch.sh \
@@ -97,15 +96,31 @@ LIBMAKEPKG_IN = \
 	libmakepkg/tidy/strip.sh \
 	libmakepkg/tidy/zipman.sh \
 	libmakepkg/util.sh \
+	libmakepkg/util/message.sh \
+	libmakepkg/util/option.sh \
+	libmakepkg/util/parseopts.sh \
 	libmakepkg/util/pkgbuild.sh \
-	libmakepkg/util/source.sh
+	libmakepkg/util/source.sh \
+	libmakepkg/util/util.sh
 
 LIBMAKEPKG_DIST = \
-	$(LIBMAKEPKG) \
 	$(addsuffix .in, $(LIBMAKEPKG_IN))
 
+WRAPPER = \
+	makepkg-wrapper \
+	pacman-db-upgrade-wrapper \
+	pacman-key-wrapper \
+	pkgdelta-wrapper
+
+COMPLETION_IN = \
+	completion/bash_completion \
+	completion/zsh_completion
+
+COMPLETION_DIST = \
+	$(addsuffix .in, $(COMPLETION_IN))
+
 # Files that should be removed, but which Automake does not know.
-MOSTLYCLEANFILES = $(bin_SCRIPTS) $(LIBMAKEPKG_IN)
+MOSTLYCLEANFILES = $(bin_SCRIPTS) $(LIBMAKEPKG_IN) $(COMPLETION_IN)
 
 clean-local:
 	$(AM_V_at)$(RM) -r .lib
@@ -159,10 +174,17 @@ $(LIBMAKEPKG_IN): %: %.in Makefile
 	$(AM_V_at)chmod a-w $@
 	@$(BASH_SHELL) -O extglob -n $@
 
+$(COMPLETION_IN): %: %.in Makefile
+	$(AM_V_at)$(RM) $@
+	$(AM_V_at)$(MKDIR_P) $(dir $@)
+	$(AM_V_GEN)$(edit) $(srcdir)/$@.in >$@
+	$(AM_V_at)chmod a-w $@
+
+all-am: $(COMPLETION_IN)
+
 makepkg: \
 	$(srcdir)/makepkg.sh.in \
-	$(srcdir)/makepkg-wrapper.sh.in \
-	$(srcdir)/library/parseopts.sh \
+	$(srcdir)/wrapper.sh.in \
 	$(LIBMAKEPKG_IN)
 
 makepkg-template: \
@@ -179,17 +201,11 @@ pacman-db-upgrade: \
 
 pacman-key: \
 	$(srcdir)/pacman-key.sh.in \
-	$(srcdir)/library/output_format.sh \
-	$(srcdir)/library/parseopts.sh
-
-pacman-optimize: \
-	$(srcdir)/pacman-optimize.sh.in \
 	$(srcdir)/library/output_format.sh
 
 pkgdelta: \
 	$(srcdir)/pkgdelta.sh.in \
-	$(srcdir)/library/output_format.sh \
-	$(srcdir)/library/parseopts.sh
+	$(srcdir)/library/output_format.sh
 
 repo-add: \
 	$(srcdir)/repo-add.sh.in \
@@ -203,26 +219,36 @@ repo-elephant: $(srcdir)/repo-add.sh.in
 	$(AM_V_at)$(RM) repo-elephant
 	$(AM_V_at)$(LN_S) repo-add repo-elephant
 
-makepkg-wrapper: \
-	Makefile \
-	$(srcdir)/makepkg-wrapper.sh.in \
-	$(srcdir)/makepkg.sh.in \
-	$(srcdir)/library/parseopts.sh \
-	| makepkg
+.SECONDEXPANSION:
+$(WRAPPER): \
+	$$(subst -wrapper,,$$@)
+
 	$(AM_V_at)$(MKDIR_P) .lib
-	$(AM_V_at)mv -f makepkg .lib
+	$(AM_V_at)mv -f $(subst -wrapper,,$@) .lib
 	$(AM_V_at)$(RM) $@
 	$(AM_V_GEN)sed \
 		-e "s|@PWD[@]|$$(pwd)|" \
+		-e "s|@PROGNAME[@]|$(subst -wrapper,,$@)|g" \
 		-e '1s|!/bin/bash|!$(BASH_SHELL)|g' \
-		$(srcdir)/$@.sh.in > $@
+		$(srcdir)/wrapper.sh.in > $@
 	$(AM_V_at)chmod +x,a-w $@
-	$(AM_V_at)$(LN_S) makepkg-wrapper makepkg
+	$(AM_V_at)$(LN_S) $@ $(subst -wrapper,,$@)
+
+install-data-local:
+	$(MKDIR_P) $(DESTDIR)$(sysconfdir)/bash_completion.d/
+	$(INSTALL_DATA) completion/bash_completion $(DESTDIR)$(sysconfdir)/bash_completion.d/pacman
+	$(MKDIR_P) $(DESTDIR)$(datarootdir)/zsh/site-functions/
+	$(INSTALL_DATA) completion/zsh_completion $(DESTDIR)$(datarootdir)/zsh/site-functions/_pacman
+
+uninstall-local:
+	$(RM) $(DESTDIR)$(sysconfdir)/bash_completion.d/pacman
+	$(RM) $(DESTDIR)$(datarootdir)/zsh/site-functions/_pacman
 
 install-exec-hook:
-	cd $(DESTDIR)$(bindir) && \
-		$(RM) makepkg makepkg-wrapper
-	$(INSTALL) .lib/makepkg $(DESTDIR)$(bindir)/makepkg
+	for wrapper in $(WRAPPER); do \
+		$(RM) $(DESTDIR)$(bindir)/$${wrapper}; \
+		$(INSTALL) .lib/$${wrapper%-wrapper} $(DESTDIR)$(bindir)/$${wrapper%-wrapper}; \
+	done
 	for dir in $(LIBMAKEPKGDIRS); do \
 		$(MKDIR_P) $(DESTDIR)$(libmakepkgdir)/$$dir; \
 	done
@@ -252,5 +278,6 @@ uninstall-hook:
 	for dir in $(LIBMAKEPKGDIRS); do \
 		$(RM) -r $(DESTDIR)$(libmakepkgdir)/$$dir; \
 	done
+
 
 # vim:set noet:

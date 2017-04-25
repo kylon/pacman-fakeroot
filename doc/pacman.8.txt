@@ -136,11 +136,12 @@ Options
 *-r, \--root* <path>::
 	Specify an alternative installation root (default is `/`). This should
 	not be used as a way to install software into `/usr/local` instead of
-	`/usr`. This option is used if you want to install a package on a
-	temporarily mounted partition that is "owned" by another system.
+	`/usr`.
 	*NOTE*: If database path or log file are not specified on either the
 	command line or in linkman:pacman.conf[5], their default location will
 	be inside this root path.
+	*NOTE*: This option is not suitable for performing operations on a mounted
+	guest system. See '\--sysroot' instead.
 
 *-v, \--verbose*::
 	Output paths such as as the Root, Conf File, DB Path, Cache Dirs, etc.
@@ -193,6 +194,16 @@ Options
 *\--confirm*::
 	Cancels the effects of a previous '\--noconfirm'.
 
+*\--disable-download-timeout*::
+	Disable defaults for low speed limit and timeout on downloads. Use this
+	if you have issues downloading files with proxy and/or security gateway.
+
+*\--sysroot* <dir>::
+	Specify an alternative system root.  Pacman will chroot and chdir into the
+	system root prior to running. This allows mounted guest systems to be
+	properly operated on. Any other paths given will be interpreted as relative
+	to the system root. Requires root privileges.
+
 
 Transaction Options (apply to '-S', '-R' and '-U')
 --------------------------------------------------
@@ -233,14 +244,6 @@ Transaction Options (apply to '-S', '-R' and '-U')
 
 Upgrade Options (apply to '-S' and '-U')[[UO]]
 ----------------------------------------------
-*\--force*::
-	Bypass file conflict checks and overwrite conflicting files. If the
-	package that is about to be installed contains files that are already
-	installed, this option will cause all those files to be overwritten.
-	Using '\--force' will not allow overwriting a directory with a file or
-	installing packages with conflicting files and directories.
-	This option should be used with care, ideally not at all.
-
 *\--asdeps*::
 	Install packages non-explicitly; in other words, fake their install reason
 	to be installed as a dependency. This is useful for makepkg and other
@@ -265,6 +268,18 @@ Upgrade Options (apply to '-S' and '-U')[[UO]]
 
 *\--needed*::
 	Do not reinstall the targets that are already up-to-date.
+
+*\--overwrite* <glob>::
+	Bypass file conflict checks and overwrite conflicting files. If the
+	package that is about to be installed contains files that are already
+	installed and match 'glob', this option will cause all those files to be
+	overwritten.  Using '\--overwrite' will not allow overwriting a directory
+	with a file or installing packages with conflicting files and directories.
+	Multiple patterns can be specified by separating them with a comma. May be
+	specified multiple times.  Patterns can be negated, such that files
+	matching them will not be overwritten, by prefixing them with an
+	exclamation mark. Subsequent matches will override previous ones. A leading
+	literal exclamation mark or backslash needs to be escaped.
 
 
 Query Options (apply to '-Q')[[QO]]
@@ -338,10 +353,10 @@ Query Options (apply to '-Q')[[QO]]
 	with descriptions matching ALL of those terms are returned.
 
 *-t, \--unrequired*::
-	Restrict or filter output to packages not required or optionally required by
-	any currently installed package. Specify this option twice to only filter
-	packages that are direct dependencies (i.e. do not filter optional
-	dependencies).
+	Restrict or filter output to print only packages neither required nor
+	optionally required by any currently installed package. Specify this
+	option twice to include packages which are optionally, but not directly,
+	required by another package.
 
 *-u, \--upgrades*::
 	Restrict or filter output to packages that are out-of-date on the local
@@ -450,19 +465,22 @@ Database Options (apply to '-D')[[QO]]
 	Mark a package as non-explicitly installed; in other words, set their install
 	reason to be installed as a dependency.
 
-*\--asexplicit<package>*::
+*\--asexplicit* <package>::
 	Mark a package as explicitly installed; in other words, set their install
 	reason to be explicitly installed. This is useful it you want to keep a
 	package installed even when it was initially installed as a dependency
 	of another package.
 
-*-k \--check*::
+*-k, \--check*::
 	Check the local package database is internally consistent. This will
 	check all required files are present and that installed packages have
 	the required dependencies, do not conflict and that multiple packages
 	do not own the same file. Specifying this option twice will perform
 	a check on the sync databases to ensure all specified dependencies
 	are available.
+
+*-q, \--quiet*::
+	Suppress messages on successful completion of database operations.
 
 File Options (apply to '-F')[[FO]]
 ----------------------------------

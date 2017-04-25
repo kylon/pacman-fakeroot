@@ -1,7 +1,7 @@
 /*
  *  be_sync.c : backend for sync databases
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -71,7 +71,7 @@ static char *get_sync_dir(alpm_handle_t *handle)
 
 static int sync_db_validate(alpm_db_t *db)
 {
-	alpm_siglevel_t level;
+	int siglevel;
 	const char *dbpath;
 
 	if(db->status & DB_STATUS_VALID || db->status & DB_STATUS_MISSING) {
@@ -104,20 +104,20 @@ static int sync_db_validate(alpm_db_t *db)
 
 	/* this takes into account the default verification level if UNKNOWN
 	 * was assigned to this db */
-	level = alpm_db_get_siglevel(db);
+	siglevel = alpm_db_get_siglevel(db);
 
-	if(level & ALPM_SIG_DATABASE) {
+	if(siglevel & ALPM_SIG_DATABASE) {
 		int retry, ret;
 		do {
 			retry = 0;
 			alpm_siglist_t *siglist;
 			ret = _alpm_check_pgp_helper(db->handle, dbpath, NULL,
-					level & ALPM_SIG_DATABASE_OPTIONAL, level & ALPM_SIG_DATABASE_MARGINAL_OK,
-					level & ALPM_SIG_DATABASE_UNKNOWN_OK, &siglist);
+					siglevel & ALPM_SIG_DATABASE_OPTIONAL, siglevel & ALPM_SIG_DATABASE_MARGINAL_OK,
+					siglevel & ALPM_SIG_DATABASE_UNKNOWN_OK, &siglist);
 			if(ret) {
 				retry = _alpm_process_siglist(db->handle, db->treename, siglist,
-						level & ALPM_SIG_DATABASE_OPTIONAL, level & ALPM_SIG_DATABASE_MARGINAL_OK,
-						level & ALPM_SIG_DATABASE_UNKNOWN_OK);
+						siglevel & ALPM_SIG_DATABASE_OPTIONAL, siglevel & ALPM_SIG_DATABASE_MARGINAL_OK,
+						siglevel & ALPM_SIG_DATABASE_UNKNOWN_OK);
 			}
 			alpm_siglist_cleanup(siglist);
 			free(siglist);
@@ -181,12 +181,12 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 	int ret = -1;
 	mode_t oldmask;
 	alpm_handle_t *handle;
-	alpm_siglevel_t level;
+	int siglevel;
 
 	/* Sanity checks */
 	ASSERT(db != NULL, return -1);
 	handle = db->handle;
-	handle->pm_errno = 0;
+	handle->pm_errno = ALPM_ERR_OK;
 	ASSERT(db != handle->db_local, RET_ERR(handle, ALPM_ERR_WRONG_ARGS, -1));
 	ASSERT(db->servers != NULL, RET_ERR(handle, ALPM_ERR_SERVER_NONE, -1));
 
@@ -207,7 +207,7 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 	/* make sure we have a sane umask */
 	oldmask = umask(0022);
 
-	level = alpm_db_get_siglevel(db);
+	siglevel = alpm_db_get_siglevel(db);
 
 	/* attempt to grab a lock */
 	if(_alpm_handle_lock(handle)) {
@@ -231,8 +231,13 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 
 		/* print server + filename into a buffer */
 		len = strlen(server) + strlen(db->treename) + strlen(dbext) + 2;
-		/* TODO fix leak syncpath and umask unset */
-		MALLOC(payload.fileurl, len, RET_ERR(handle, ALPM_ERR_MEMORY, -1));
+		MALLOC(payload.fileurl, len,
+			{
+				free(syncpath);
+				umask(oldmask);
+				RET_ERR(handle, ALPM_ERR_MEMORY, -1);
+			}
+		);
 		snprintf(payload.fileurl, len, "%s/%s%s", server, db->treename, dbext);
 		payload.handle = handle;
 		payload.force = force;
@@ -242,7 +247,7 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 		_alpm_dload_payload_reset(&payload);
 		updated = (updated || ret == 0);
 
-		if(ret != -1 && updated && (level & ALPM_SIG_DATABASE)) {
+		if(ret != -1 && updated && (siglevel & ALPM_SIG_DATABASE)) {
 			/* an existing sig file is no good at this point */
 			char *sigpath = _alpm_sigpath(handle, _alpm_db_path(db));
 			if(!sigpath) {
@@ -271,8 +276,13 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 				len = strlen(server) + strlen(db->treename) + strlen(dbext) + 6;
 			}
 
-			/* TODO fix leak syncpath and umask unset */
-			MALLOC(payload.fileurl, len, RET_ERR(handle, ALPM_ERR_MEMORY, -1));
+			MALLOC(payload.fileurl, len,
+				{
+					free(syncpath);
+					umask(oldmask);
+					RET_ERR(handle, ALPM_ERR_MEMORY, -1);
+				}
+			);
 
 			if(final_db_url != NULL) {
 				snprintf(payload.fileurl, len, "%s.sig", final_db_url);
@@ -282,7 +292,7 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 
 			payload.handle = handle;
 			payload.force = 1;
-			payload.errors_ok = (level & ALPM_SIG_DATABASE_OPTIONAL);
+			payload.errors_ok = (siglevel & ALPM_SIG_DATABASE_OPTIONAL);
 
 			/* set hard upper limit of 16KiB */
 			payload.max_size = 16 * 1024;
@@ -320,7 +330,7 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 		_alpm_log(handle, ALPM_LOG_DEBUG, "failed to sync db: %s\n",
 				alpm_strerror(handle->pm_errno));
 	} else {
-		handle->pm_errno = 0;
+		handle->pm_errno = ALPM_ERR_OK;
 	}
 
 	_alpm_handle_unlock(handle);
@@ -333,7 +343,7 @@ int SYMEXPORT alpm_db_update(int force, alpm_db_t *db)
 static int sync_db_read(alpm_db_t *db, struct archive *archive,
 		struct archive_entry *entry, alpm_pkg_t **likely_pkg);
 
-static alpm_pkgvalidation_t _sync_get_validation(alpm_pkg_t *pkg)
+static int _sync_get_validation(alpm_pkg_t *pkg)
 {
 	if(pkg->validation) {
 		return pkg->validation;
@@ -452,8 +462,9 @@ static size_t estimate_package_count(struct stat *st, struct archive *archive)
 static int sync_db_populate(alpm_db_t *db)
 {
 	const char *dbpath;
-	size_t est_count;
-	int count, fd;
+	size_t est_count, count;
+	int fd;
+	int ret = 0;
 	struct stat buf;
 	struct archive *archive;
 	struct archive_entry *entry;
@@ -487,7 +498,7 @@ static int sync_db_populate(alpm_db_t *db)
 	db->pkgcache = _alpm_pkghash_create(est_count);
 	if(db->pkgcache == NULL) {
 		db->handle->pm_errno = ALPM_ERR_MEMORY;
-		count = -1;
+		ret = -1;
 		goto cleanup;
 	}
 
@@ -509,10 +520,10 @@ static int sync_db_populate(alpm_db_t *db)
 	count = alpm_list_count(db->pkgcache->list);
 	if(count > 0) {
 		db->pkgcache->list = alpm_list_msort(db->pkgcache->list,
-				(size_t)count, _alpm_pkg_cmp);
+				count, _alpm_pkg_cmp);
 	}
 	_alpm_log(db->handle, ALPM_LOG_DEBUG,
-			"added %d packages to package cache for db '%s'\n",
+			"added %zu packages to package cache for db '%s'\n",
 			count, db->treename);
 
 cleanup:
@@ -520,7 +531,7 @@ cleanup:
 	if(fd >= 0) {
 		close(fd);
 	}
-	return count;
+	return ret;
 }
 
 /* This function validates %FILENAME%. filename must be between 3 and
@@ -724,13 +735,12 @@ static int sync_db_read(alpm_db_t *db, struct archive *archive,
 				/* attempt to hand back any memory we don't need */
 				if(files_count > 0) {
 					files = realloc(files, sizeof(alpm_file_t) * files_count);
-					/* make sure the list is sorted */
-					qsort(files, files_count, sizeof(alpm_file_t), _alpm_files_cmp);
 				} else {
 					FREE(files);
 				}
 				pkg->files.count = files_count;
 				pkg->files.files = files;
+				_alpm_filelist_sort(&pkg->files);
 			}
 		}
 		if(ret != ARCHIVE_EOF) {
@@ -758,7 +768,7 @@ struct db_operations sync_db_ops = {
 };
 
 alpm_db_t *_alpm_db_register_sync(alpm_handle_t *handle, const char *treename,
-		alpm_siglevel_t level)
+		int level)
 {
 	alpm_db_t *db;
 

@@ -1,7 +1,7 @@
 /*
  *  sync.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005 by Christian Hamar <krics@linuxforum.hu>
@@ -57,7 +57,7 @@ alpm_pkg_t SYMEXPORT *alpm_sync_newversion(alpm_pkg_t *pkg, alpm_list_t *dbs_syn
 	alpm_pkg_t *spkg = NULL;
 
 	ASSERT(pkg != NULL, return NULL);
-	pkg->handle->pm_errno = 0;
+	pkg->handle->pm_errno = ALPM_ERR_OK;
 
 	for(i = dbs_sync; !spkg && i; i = i->next) {
 		alpm_db_t *db = i->data;
@@ -460,7 +460,7 @@ int _alpm_sync_prepare(alpm_handle_t *handle, alpm_list_t **data)
 				   transaction. The packages will be removed from the actual
 				   transaction when the transaction packages are replaced with a
 				   dependency-reordered list below */
-				handle->pm_errno = 0;
+				handle->pm_errno = ALPM_ERR_OK;
 				if(data) {
 					alpm_list_free_inner(*data,
 							(alpm_list_fn_free)alpm_depmissing_free);
@@ -946,9 +946,7 @@ static int download_single_file(alpm_handle_t *handle, struct dload_payload *pay
 			EVENT(handle, &event);
 			return 0;
 		}
-
-		FREE(payload->fileurl);
-		payload->unlink_on_fail = 0;
+		_alpm_dload_payload_reset_for_retry(payload);
 	}
 
 	event.type = ALPM_EVENT_PKGDOWNLOAD_FAILED;
@@ -1056,7 +1054,7 @@ static int check_keyring(alpm_handle_t *handle)
 
 	for(i = handle->trans->add; i; i = i->next, current++) {
 		alpm_pkg_t *pkg = i->data;
-		alpm_siglevel_t level;
+		int level;
 
 		int percent = (current * 100) / numtargs;
 		PROGRESS(handle, ALPM_PROGRESS_KEYRING_START, "", percent,
@@ -1126,8 +1124,8 @@ static int check_validity(alpm_handle_t *handle,
 		alpm_pkg_t *pkg;
 		char *path;
 		alpm_siglist_t *siglist;
-		alpm_siglevel_t level;
-		alpm_pkgvalidation_t validation;
+		int siglevel;
+		int validation;
 		alpm_errno_t error;
 	};
 	size_t current = 0;
@@ -1151,10 +1149,10 @@ static int check_validity(alpm_handle_t *handle,
 
 		current_bytes += v.pkg->size;
 		v.path = _alpm_filecache_find(handle, v.pkg->filename);
-		v.level = alpm_db_get_siglevel(alpm_pkg_get_db(v.pkg));
+		v.siglevel = alpm_db_get_siglevel(alpm_pkg_get_db(v.pkg));
 
 		if(_alpm_pkg_validate_internal(handle, v.path, v.pkg,
-					v.level, &v.siglist, &v.validation) == -1) {
+					v.siglevel, &v.siglist, &v.validation) == -1) {
 			struct validity *invalid;
 			v.error = handle->pm_errno;
 			MALLOC(invalid, sizeof(struct validity), return -1);
@@ -1181,9 +1179,9 @@ static int check_validity(alpm_handle_t *handle,
 						_("%s: missing required signature\n"), v->pkg->name);
 			} else if(v->error == ALPM_ERR_PKG_INVALID_SIG) {
 				_alpm_process_siglist(handle, v->pkg->name, v->siglist,
-						v->level & ALPM_SIG_PACKAGE_OPTIONAL,
-						v->level & ALPM_SIG_PACKAGE_MARGINAL_OK,
-						v->level & ALPM_SIG_PACKAGE_UNKNOWN_OK);
+						v->siglevel & ALPM_SIG_PACKAGE_OPTIONAL,
+						v->siglevel & ALPM_SIG_PACKAGE_MARGINAL_OK,
+						v->siglevel & ALPM_SIG_PACKAGE_UNKNOWN_OK);
 				prompt_to_delete(handle, v->path, v->error);
 			} else if(v->error == ALPM_ERR_PKG_INVALID_CHECKSUM) {
 				prompt_to_delete(handle, v->path, v->error);
@@ -1195,7 +1193,7 @@ static int check_validity(alpm_handle_t *handle,
 		}
 		alpm_list_free(errors);
 
-		if(!handle->pm_errno) {
+		if(handle->pm_errno == ALPM_ERR_OK) {
 			RET_ERR(handle, ALPM_ERR_PKG_INVALID, -1);
 		}
 		return -1;
@@ -1280,7 +1278,7 @@ static int load_packages(alpm_handle_t *handle, alpm_list_t **data,
 	EVENT(handle, &event);
 
 	if(errors) {
-		if(!handle->pm_errno) {
+		if(handle->pm_errno == ALPM_ERR_OK) {
 			RET_ERR(handle, ALPM_ERR_PKG_INVALID, -1);
 		}
 		return -1;

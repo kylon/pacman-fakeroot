@@ -1,7 +1,7 @@
 /*
  *  util.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -61,7 +61,7 @@ enum {
 	CELL_FREE = (1 << 3)
 };
 
-int trans_init(alpm_transflag_t flags, int check_valid)
+int trans_init(int flags, int check_valid)
 {
 	int ret;
 
@@ -103,6 +103,9 @@ int trans_release(void)
 
 int needs_root(void)
 {
+	if(config->sysroot) {
+		return 1;
+	}
 	switch(config->op) {
 		case PM_OP_DATABASE:
 			return !config->op_q_check;
@@ -1503,6 +1506,8 @@ int select_question(int count)
 	return (preset - 1);
 }
 
+#define CMP(x, y) ((x) < (y) ? -1 : ((x) > (y) ? 1 : 0))
+
 static int mbscasecmp(const char *s1, const char *s2)
 {
 	size_t len1 = strlen(s1), len2 = strlen(s2);
@@ -1520,19 +1525,19 @@ static int mbscasecmp(const char *s1, const char *s2)
 			return strcasecmp(p1, p2);
 		}
 		if(b1 == 0 || b2 == 0) {
-			return c1 - c2;
+			return CMP(c1, c2);
 		}
 		c1 = towlower(c1);
 		c2 = towlower(c2);
 		if(c1 != c2) {
-			return c1 - c2;
+			return CMP(c1, c2);
 		}
 		p1 += b1;
 		p2 += b2;
 		len1 -= b1;
 		len2 -= b2;
 	}
-	return *p1 - *p2;
+	return CMP(*p1, *p2);
 }
 
 /* presents a prompt and gets a Y/N answer */

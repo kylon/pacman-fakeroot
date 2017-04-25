@@ -1,7 +1,7 @@
 /*
  *  util.h
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005 by Christian Hamar <krics@linuxforum.hu>
@@ -21,8 +21,8 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _ALPM_UTIL_H
-#define _ALPM_UTIL_H
+#ifndef ALPM_UTIL_H
+#define ALPM_UTIL_H
 
 #include "alpm_list.h"
 #include "alpm.h"
@@ -77,7 +77,7 @@ void _alpm_alloc_fail(size_t size);
 
 #define DOUBLE_EQ(x, y) (fabs((x) - (y)) < DBL_EPSILON)
 
-#define CHECK_HANDLE(handle, action) do { if(!(handle)) { action; } (handle)->pm_errno = 0; } while(0)
+#define CHECK_HANDLE(handle, action) do { if(!(handle)) { action; } (handle)->pm_errno = ALPM_ERR_OK; } while(0)
 
 /** Standard buffer size used throughout the library. */
 #ifdef BUFSIZ
@@ -131,6 +131,8 @@ int _alpm_ldconfig(alpm_handle_t *handle);
 int _alpm_str_cmp(const void *s1, const void *s2);
 char *_alpm_filecache_find(alpm_handle_t *handle, const char *filename);
 const char *_alpm_filecache_setup(alpm_handle_t *handle);
+/* Unlike many uses of alpm_pkgvalidation_t, _alpm_test_checksum expects
+ * an enum value rather than a bitfield. */
 int _alpm_test_checksum(const char *filepath, const char *expected, alpm_pkgvalidation_t type);
 int _alpm_archive_fgets(struct archive *a, struct archive_read_buffer *b);
 int _alpm_splitname(const char *target, char **name, char **version,
@@ -156,6 +158,6 @@ char *strsep(char **, const char *);
 
 #define UNUSED __attribute__((unused))
 
-#endif /* _ALPM_UTIL_H */
+#endif /* ALPM_UTIL_H */
 
 /* vim: set noet: */

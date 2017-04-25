@@ -1,7 +1,7 @@
 /*
  *  files.c
  *
- *  Copyright (c) 2015-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2015-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -78,10 +78,10 @@ static int files_fileowner(alpm_list_t *syncs, alpm_list_t *targets) {
 						print_line_machinereadable(repo, pkg, filename);
 					} else if(!config->quiet) {
 						const colstr_t *colstr = &config->colstr;
-						printf(_("%s is owned by %s%s/%s%s %s%s\n"), filename,
+						printf(_("%s is owned by %s%s/%s%s %s%s%s\n"), filename,
 								colstr->repo, alpm_db_get_name(repo), colstr->title,
 								alpm_pkg_get_name(pkg), colstr->version,
-								alpm_pkg_get_version(pkg));
+								alpm_pkg_get_version(pkg), colstr->nocolor);
 					} else {
 						printf("%s/%s\n", alpm_db_get_name(repo), alpm_pkg_get_name(pkg));
 					}

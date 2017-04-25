@@ -1,7 +1,7 @@
 /*
  *  pacman.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -171,6 +171,7 @@ static void usage(int op, const char * const myname)
 			addlist(_("      --asdeps         mark packages as non-explicitly installed\n"));
 			addlist(_("      --asexplicit     mark packages as explicitly installed\n"));
 			addlist(_("  -k, --check          test local database for validity (-kk for sync databases)\n"));
+			addlist(_("  -q, --quiet          suppress output of success messages\n"));
 		} else if(op == PM_OP_DEPTEST) {
 			printf("%s:  %s {-T --deptest} [%s] [%s]\n", str_usg, myname, str_opt, str_pkg);
 			printf("%s:\n", str_opt);
@@ -188,7 +189,8 @@ static void usage(int op, const char * const myname)
 		switch(op) {
 			case PM_OP_SYNC:
 			case PM_OP_UPGRADE:
-				addlist(_("      --force          force install, overwrite conflicting files\n"));
+				addlist(_("      --overwrite <path>\n"
+				          "                       overwrite conflicting files (can be used more than once)\n"));
 				addlist(_("      --asdeps         install packages as non-explicitly installed\n"));
 				addlist(_("      --asexplicit     install packages as explicitly installed\n"));
 				addlist(_("      --ignore <pkg>   ignore a package upgrade (can be used more than once)\n"));
@@ -212,6 +214,7 @@ static void usage(int op, const char * const myname)
 		addlist(_("  -r, --root <path>    set an alternate installation root\n"));
 		addlist(_("  -v, --verbose        be verbose\n"));
 		addlist(_("      --arch <arch>    set an alternate architecture\n"));
+		addlist(_("      --sysroot        operate on a mounted guest system (root-only)\n"));
 		addlist(_("      --cachedir <dir> set an alternate package cache location\n"));
 		addlist(_("      --hookdir <dir>  set an alternate hook location\n"));
 		addlist(_("      --color <when>   colorize the output\n"));
@@ -221,6 +224,8 @@ static void usage(int op, const char * const myname)
 		addlist(_("      --logfile <path> set an alternate log file\n"));
 		addlist(_("      --noconfirm      do not ask for any confirmation\n"));
 		addlist(_("      --confirm        always ask for confirmation\n"));
+		addlist(_("      --disable-download-timeout\n"
+		          "                       use relaxed timeouts for download\n"));
 	}
 	list = alpm_list_msort(list, alpm_list_count(list), options_cmp);
 	for(i = list; i; i = alpm_list_next(i)) {
@@ -236,7 +241,7 @@ static void version(void)
 {
 	printf("\n");
 	printf(" .--.                  Pacman v%s - libalpm v%s\n", PACKAGE_VERSION, alpm_version());
-	printf("/ _.-' .-.  .-.  .-.   Copyright (C) 2006-2016 Pacman Development Team\n");
+	printf("/ _.-' .-.  .-.  .-.   Copyright (C) 2006-2017 Pacman Development Team\n");
 	printf("\\  '-. '-'  '-'  '-'   Copyright (C) 2002-2006 Judd Vinet\n");
 	printf(" '--'\n");
 	printf(_("                       This program may be freely redistributed under\n"
@@ -443,6 +448,13 @@ static int parsearg_global(int opt)
 			free(config->rootdir);
 			config->rootdir = strdup(optarg);
 			break;
+		case OP_SYSROOT:
+			free(config->sysroot);
+			config->sysroot = strdup(optarg);
+			break;
+		case OP_DISABLEDLTIMEOUT:
+			config->disable_dl_timeout = 1;
+			break;
 		case OP_VERBOSE:
 		case 'v':
 			(config->verbose)++;
@@ -466,6 +478,10 @@ static int parsearg_database(int opt)
 		case 'k':
 			(config->op_q_check)++;
 			break;
+		case OP_QUIET:
+		case 'q':
+			config->quiet = 1;
+		break;
 		default:
 			return 1;
 	}
@@ -696,7 +712,12 @@ static int parsearg_upgrade(int opt)
 	}
 	switch(opt) {
 		case OP_FORCE:
+			pm_printf(ALPM_LOG_WARNING,
+					_("option --force is deprecated; use --overwrite instead\n"));
 			config->flags |= ALPM_TRANS_FLAG_FORCE;
+			break;
+		case OP_OVERWRITE_FILES:
+			parsearg_util_addlist(&(config->overwrite_files));
 			break;
 		case OP_ASDEPS:
 			config->flags |= ALPM_TRANS_FLAG_ALLDEPS;
@@ -901,6 +922,7 @@ static int parseargs(int argc, char *argv[])
 		{"print",      no_argument,       0, OP_PRINT},
 		{"quiet",      no_argument,       0, OP_QUIET},
 		{"root",       required_argument, 0, OP_ROOT},
+		{"sysroot",    required_argument, 0, OP_SYSROOT},
 		{"recursive",  no_argument,       0, OP_RECURSIVE},
 		{"search",     no_argument,       0, OP_SEARCH},
 		{"regex",      no_argument,       0, OP_REGEX},
@@ -919,6 +941,7 @@ static int parseargs(int argc, char *argv[])
 		{"assume-installed",     required_argument, 0, OP_ASSUMEINSTALLED},
 		{"debug",      optional_argument, 0, OP_DEBUG},
 		{"force",      no_argument,       0, OP_FORCE},
+		{"overwrite",  required_argument, 0, OP_OVERWRITE_FILES},
 		{"noprogressbar", no_argument,    0, OP_NOPROGRESSBAR},
 		{"noscriptlet", no_argument,      0, OP_NOSCRIPTLET},
 		{"ask",        required_argument, 0, OP_ASK},
@@ -934,6 +957,7 @@ static int parseargs(int argc, char *argv[])
 		{"gpgdir",     required_argument, 0, OP_GPGDIR},
 		{"dbonly",     no_argument,       0, OP_DBONLY},
 		{"color",      required_argument, 0, OP_COLOR},
+		{"disable-download-timeout", no_argument, 0, OP_DISABLEDLTIMEOUT},
 		{0, 0, 0, 0}
 	};
 
@@ -1089,7 +1113,6 @@ static void cl_to_log(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 	int ret = 0;
-	size_t i;
 	uid_t myuid = getuid();
 
 	install_segv_handler();
@@ -1133,48 +1156,52 @@ int main(int argc, char *argv[])
 		cleanup(ret);
 	}
 
+	/* check if we have sufficient permission for the requested operation */
+	if(myuid > 0 && needs_root()) {
+		pm_printf(ALPM_LOG_ERROR, _("you cannot perform this operation unless you are root.\n"));
+		cleanup(EXIT_FAILURE);
+	}
+
+	if(config->sysroot && (chroot(config->sysroot) != 0 || chdir("/") != 0)) {
+		pm_printf(ALPM_LOG_ERROR,
+				_("chroot to '%s' failed: (%s)\n"), config->sysroot, strerror(errno));
+		cleanup(EXIT_FAILURE);
+	}
+
 	/* we support reading targets from stdin if a cmdline parameter is '-' */
 	if(alpm_list_find_str(pm_targets, "-")) {
 		if(!isatty(fileno(stdin))) {
 			int target_found = 0;
-			size_t current_size = PATH_MAX;
-			char *vdata, *line = malloc(current_size);
-			int c;
+			char *vdata, *line = NULL;
+			size_t line_size = 0;
+			ssize_t nread;
 
 			/* remove the '-' from the list */
 			pm_targets = alpm_list_remove_str(pm_targets, "-", &vdata);
 			free(vdata);
 
-			i = 0;
-			do {
-				c = fgetc(stdin);
-				if(c == EOF || isspace(c)) {
-					/* avoid adding zero length arg when multiple spaces separate args */
-					if(i > 0) {
-						line[i] = '\0';
-						pm_targets = alpm_list_add(pm_targets, strdup(line));
-						target_found = 1;
-						i = 0;
-					}
-				} else {
-					line[i++] = (char)c;
-					/* we may be at the end of our allocated buffer now */
-					if(i >= current_size) {
-						char *new = realloc(line, current_size * 2);
-						if(new) {
-							line = new;
-							current_size *= 2;
-						} else {
-							free(line);
-							pm_printf(ALPM_LOG_ERROR,
-									_("memory exhausted in argument parsing\n"));
-							cleanup(EXIT_FAILURE);
-						}
-					}
+			while((nread = getline(&line, &line_size, stdin)) != -1) {
+				if(line[nread - 1] == '\n') {
+					/* remove trailing newline */
+					line[nread - 1] = '\0';
 				}
-			} while(c != EOF);
-
+				if(line[0] == '\0') {
+					/* skip empty lines */
+					continue;
+				}
+				if(!alpm_list_append_strdup(&pm_targets, line)) {
+					break;
+				}
+				target_found = 1;
+			}
 			free(line);
+
+			if(ferror(stdin)) {
+				pm_printf(ALPM_LOG_ERROR,
+						_("failed to read arguments from stdin: (%s)\n"), strerror(errno));
+				cleanup(EXIT_FAILURE);
+			}
+
 			if(!freopen(ctermid(NULL), "r", stdin)) {
 				pm_printf(ALPM_LOG_ERROR, _("failed to reopen stdin for reading: (%s)\n"),
 						strerror(errno));
@@ -1211,12 +1238,6 @@ int main(int argc, char *argv[])
 		config->flags |= ALPM_TRANS_FLAG_NOLOCK;
 		/* Display only errors */
 		config->logmask &= ~ALPM_LOG_WARNING;
-	}
-
-	/* check if we have sufficient permission for the requested operation */
-	if(myuid > 0 && needs_root()) {
-		pm_printf(ALPM_LOG_ERROR, _("you cannot perform this operation unless you are root.\n"));
-		cleanup(EXIT_FAILURE);
 	}
 
 	if(config->verbose > 0) {

@@ -1,7 +1,7 @@
 /*
  *  util.h
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -17,8 +17,8 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _PM_UTIL_H
-#define _PM_UTIL_H
+#ifndef PM_UTIL_H
+#define PM_UTIL_H
 
 #include <stdlib.h>
 #include <stdarg.h>
@@ -45,7 +45,8 @@ typedef struct _pm_target_t {
 } pm_target_t;
 
 void trans_init_error(void);
-int trans_init(alpm_transflag_t flags, int check_valid);
+/* flags is a bitfield of alpm_transflag_t flags */
+int trans_init(int flags, int check_valid);
 int trans_release(void);
 int needs_root(void);
 int check_syncdbs(size_t need_repos, int check_valid);
@@ -82,6 +83,6 @@ int pm_vfprintf(FILE *stream, alpm_loglevel_t level, const char *format, va_list
 int pm_sprintf(char **string, alpm_loglevel_t level, const char *format, ...) __attribute__((format(printf,3,4)));
 int pm_vasprintf(char **string, alpm_loglevel_t level, const char *format, va_list args) __attribute__((format(printf,3,0)));
 
-#endif /* _PM_UTIL_H */
+#endif /* PM_UTIL_H */
 
 /* vim: set noet: */

@@ -1,7 +1,7 @@
 /*
  *  filelist.c
  *
- *  Copyright (c) 2012-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2012-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -111,7 +111,7 @@ alpm_list_t *_alpm_filelist_intersection(alpm_filelist_t *filesA,
 
 /* Helper function for comparing files list entries
  */
-int _alpm_files_cmp(const void *f1, const void *f2)
+static int _alpm_files_cmp(const void *f1, const void *f2)
 {
 	const alpm_file_t *file1 = f1;
 	const alpm_file_t *file2 = f2;
@@ -131,6 +131,19 @@ alpm_file_t SYMEXPORT *alpm_filelist_contains(alpm_filelist_t *filelist,
 
 	return bsearch(&key, filelist->files, filelist->count,
 			sizeof(alpm_file_t), _alpm_files_cmp);
+}
+
+void _alpm_filelist_sort(alpm_filelist_t *filelist)
+{
+	size_t i;
+	for(i = 1; i < filelist->count; i++) {
+		if(strcmp(filelist->files[i - 1].name, filelist->files[i].name) > 0) {
+			/* filelist is not pre-sorted */
+			qsort(filelist->files, filelist->count,
+					sizeof(alpm_file_t), _alpm_files_cmp);
+			return;
+		}
+	}
 }
 
 /* vim: set noet: */

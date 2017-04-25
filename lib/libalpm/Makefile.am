@@ -58,12 +58,6 @@ libalpm_la_SOURCES = \
 	util-common.h util-common.c \
 	version.c
 
-if !HAVE_LIBSSL
-libalpm_la_SOURCES += \
-	md5.h md5.c \
-	sha2.h sha2.c
-endif
-
 libalpm_la_LDFLAGS = -no-undefined -version-info $(LIB_VERSION_INFO)
 
 libalpm_la_CFLAGS = \
@@ -71,13 +65,15 @@ libalpm_la_CFLAGS = \
 	$(GPGME_CFLAGS) \
 	$(LIBARCHIVE_CFLAGS) \
 	$(LIBCURL_CFLAGS) \
-	$(LIBSSL_CFLAGS)
+	$(LIBSSL_CFLAGS) \
+	$(NETTLE_CFLAGS)
 
 libalpm_la_LIBADD = \
 	$(LTLIBINTL) \
 	$(GPGME_LIBS) \
 	$(LIBARCHIVE_LIBS) \
 	$(LIBCURL_LIBS) \
-	$(LIBSSL_LIBS)
+	$(LIBSSL_LIBS) \
+	$(NETTLE_LIBS)
 
 # vim:set noet:

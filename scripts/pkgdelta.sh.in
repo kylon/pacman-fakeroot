@@ -28,6 +28,12 @@ export TEXTDOMAINDIR='@localedir@'
 
 declare -r myver='@PACKAGE_VERSION@'
 
+LIBRARY=${LIBRARY:-'@libmakepkgdir@'}
+
+# Import parseopts.sh
+source "$LIBRARY"/util/parseopts.sh
+
+# Options
 QUIET=0
 USE_COLOR='y'
 
@@ -41,7 +47,6 @@ max_delta_size=70
 # ensure we have a sane umask set
 umask 0022
 
-m4_include(library/parseopts.sh)
 m4_include(library/output_format.sh)
 
 # print usage instructions
@@ -114,7 +119,7 @@ create_xdelta()
 	newver="$pkgver"
 	newarch="$arch"
 
-	pkgsize="$(@SIZECMD@ -L "$newfile")"
+	pkgsize="$(wc -c "$newfile" | cut -d' ' -f1)"
 
 	if ((pkgsize < min_pkg_size)); then
 		msg "$(gettext "Skipping delta creation for small package: %s - size %s")" "$newname" "$pkgsize"
@@ -146,7 +151,7 @@ create_xdelta()
 		return 1
 	fi
 
-	deltasize="$(@SIZECMD@ -L "$deltafile")"
+	deltasize="$(wc -c "$deltafile" | cut -d' ' -f1)"
 
 	if ((max_delta_size * pkgsize / 100 < deltasize)); then
 		msg "$(gettext "Delta package larger than maximum size. Removing.")"

@@ -1,7 +1,7 @@
 /*
  *  database.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -74,10 +74,12 @@ static int change_install_reason(alpm_list_t *targets)
 							pkgname, alpm_strerror(alpm_errno(config->handle)));
 			ret = 1;
 		} else {
-			if(reason == ALPM_PKG_REASON_DEPEND) {
-				printf(_("%s: install reason has been set to 'installed as dependency'\n"), pkgname);
-			} else {
-				printf(_("%s: install reason has been set to 'explicitly installed'\n"), pkgname);
+			if(!config->quiet) {
+				if(reason == ALPM_PKG_REASON_DEPEND) {
+					printf(_("%s: install reason has been set to 'installed as dependency'\n"), pkgname);
+				} else {
+					printf(_("%s: install reason has been set to 'explicitly installed'\n"), pkgname);
+				}
 			}
 		}
 	}
@@ -285,6 +287,10 @@ int pacman_database(alpm_list_t *targets)
 			ret = check_db_local();
 		} else {
 			ret = check_db_sync();
+		}
+
+		if(ret == 0 && !config->quiet) {
+			printf(_("No database errors have been found!\n"));
 		}
 	}
 

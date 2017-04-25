@@ -1,7 +1,7 @@
 /*
  *  db.h
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2006 by Miklos Vajna <vmiklos@frugalware.org>
@@ -19,8 +19,8 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _ALPM_DB_H
-#define _ALPM_DB_H
+#ifndef ALPM_DB_H
+#define ALPM_DB_H
 
 /* libarchive */
 #include <archive.h>
@@ -71,10 +71,14 @@ struct __alpm_db_t {
 	alpm_list_t *grpcache;
 	alpm_list_t *servers;
 	struct db_operations *ops;
-	/* flags determining validity, local, loaded caches, etc. */
-	enum _alpm_dbstatus_t status;
-	alpm_siglevel_t siglevel;
-	alpm_db_usage_t usage;
+
+	/* bitfields for validity, local, loaded caches, etc. */
+	/* From _alpm_dbstatus_t */
+	int status;
+	/* alpm_siglevel_t */
+	int siglevel;
+	/* alpm_db_usage_t */
+	int usage;
 };
 
 
@@ -86,12 +90,12 @@ int _alpm_db_cmp(const void *d1, const void *d2);
 alpm_list_t *_alpm_db_search(alpm_db_t *db, const alpm_list_t *needles);
 alpm_db_t *_alpm_db_register_local(alpm_handle_t *handle);
 alpm_db_t *_alpm_db_register_sync(alpm_handle_t *handle, const char *treename,
-		alpm_siglevel_t level);
+		int level);
 void _alpm_db_unregister(alpm_db_t *db);
 
 /* be_*.c, backend specific calls */
 int _alpm_local_db_prepare(alpm_db_t *db, alpm_pkg_t *info);
-int _alpm_local_db_write(alpm_db_t *db, alpm_pkg_t *info, alpm_dbinfrq_t inforeq);
+int _alpm_local_db_write(alpm_db_t *db, alpm_pkg_t *info, int inforeq);
 int _alpm_local_db_remove(alpm_db_t *db, alpm_pkg_t *info);
 char *_alpm_local_db_pkgpath(alpm_db_t *db, alpm_pkg_t *info, const char *filename);
 
@@ -107,6 +111,6 @@ alpm_pkg_t *_alpm_db_get_pkgfromcache(alpm_db_t *db, const char *target);
 alpm_list_t *_alpm_db_get_groupcache(alpm_db_t *db);
 alpm_group_t *_alpm_db_get_groupfromcache(alpm_db_t *db, const char *target);
 
-#endif /* _ALPM_DB_H */
+#endif /* ALPM_DB_H */
 
 /* vim: set noet: */

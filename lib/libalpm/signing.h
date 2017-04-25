@@ -1,7 +1,7 @@
 /*
  *  signing.h
  *
- *  Copyright (c) 2008-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2008-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,8 +16,8 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _ALPM_SIGNING_H
-#define _ALPM_SIGNING_H
+#ifndef ALPM_SIGNING_H
+#define ALPM_SIGNING_H
 
 #include "alpm.h"
 
@@ -34,6 +34,6 @@ int _alpm_process_siglist(alpm_handle_t *handle, const char *identifier,
 int _alpm_key_in_keychain(alpm_handle_t *handle, const char *fpr);
 int _alpm_key_import(alpm_handle_t *handle, const char *fpr);
 
-#endif /* _ALPM_SIGNING_H */
+#endif /* ALPM_SIGNING_H */
 
 /* vim: set noet: */

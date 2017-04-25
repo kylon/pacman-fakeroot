@@ -1,7 +1,7 @@
 /*
  *  signing.c
  *
- *  Copyright (c) 2008-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2008-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -355,6 +355,10 @@ static int key_search(alpm_handle_t *handle, const char *fpr,
 /* value added in gpgme 1.5.0 */
 #if GPGME_VERSION_NUMBER >= 0x010500
 		case GPGME_PK_ECC:
+#endif
+/* value added in gpgme 1.7.0 */
+#if GPGME_VERSION_NUMBER >= 0x010700
+		case GPGME_PK_EDDSA:
 #endif
 			pgpkey->pubkey_algo = 'E';
 			break;
@@ -771,7 +775,7 @@ int _alpm_check_pgp_helper(alpm_handle_t *handle, const char *path,
 	if(ret && handle->pm_errno == ALPM_ERR_SIG_MISSING) {
 		if(optional) {
 			_alpm_log(handle, ALPM_LOG_DEBUG, "missing optional signature\n");
-			handle->pm_errno = 0;
+			handle->pm_errno = ALPM_ERR_OK;
 			ret = 0;
 		} else {
 			_alpm_log(handle, ALPM_LOG_DEBUG, "missing required signature\n");
@@ -931,7 +935,7 @@ int SYMEXPORT alpm_pkg_check_pgp_signature(alpm_pkg_t *pkg,
 {
 	ASSERT(pkg != NULL, return -1);
 	ASSERT(siglist != NULL, RET_ERR(pkg->handle, ALPM_ERR_WRONG_ARGS, -1));
-	pkg->handle->pm_errno = 0;
+	pkg->handle->pm_errno = ALPM_ERR_OK;
 
 	return _alpm_gpgme_checksig(pkg->handle, pkg->filename,
 			pkg->base64_sig, siglist);
@@ -948,7 +952,7 @@ int SYMEXPORT alpm_db_check_pgp_signature(alpm_db_t *db,
 {
 	ASSERT(db != NULL, return -1);
 	ASSERT(siglist != NULL, RET_ERR(db->handle, ALPM_ERR_WRONG_ARGS, -1));
-	db->handle->pm_errno = 0;
+	db->handle->pm_errno = ALPM_ERR_OK;
 
 	return _alpm_gpgme_checksig(db->handle, _alpm_db_path(db), NULL, siglist);
 }
@@ -998,21 +1002,21 @@ int SYMEXPORT alpm_extract_keyid(alpm_handle_t *handle, const char *identifier,
 	while(pos < len) {
 		if(!(sig[pos] & 0x80)) {
 			_alpm_log(handle, ALPM_LOG_ERROR,
-					_("%s: signature format error"), identifier);
+					_("%s: signature format error\n"), identifier);
 			return -1;
 		}
 
 		if(sig[pos] & 0x40) {
 			/* "new" packet format is not supported */
 			_alpm_log(handle, ALPM_LOG_ERROR,
-					_("%s: unsupported signature format"), identifier);
+					_("%s: unsupported signature format\n"), identifier);
 			return -1;
 		}
 
 		if(((sig[pos] & 0x3f) >> 2) != 2) {
 			/* signature is not a "Signature Packet" */
 			_alpm_log(handle, ALPM_LOG_ERROR,
-					_("%s: signature format error"), identifier);
+					_("%s: signature format error\n"), identifier);
 			return -1;
 		}
 
@@ -1035,21 +1039,21 @@ int SYMEXPORT alpm_extract_keyid(alpm_handle_t *handle, const char *identifier,
 			case 3:
 				/* partial body length not supported */
 				_alpm_log(handle, ALPM_LOG_ERROR,
-					_("%s: unsupported signature format"), identifier);
+					_("%s: unsupported signature format\n"), identifier);
 				return -1;
 		}
 
 		if(sig[pos] != 4) {
 			/* only support version 4 signature packet format */
 			_alpm_log(handle, ALPM_LOG_ERROR,
-					_("%s: unsupported signature format"), identifier);
+					_("%s: unsupported signature format\n"), identifier);
 			return -1;
 		}
 
 		if(sig[pos + 1] != 0x00) {
 			/* not a signature of a binary document */
 			_alpm_log(handle, ALPM_LOG_ERROR,
-					_("%s: signature format error"), identifier);
+					_("%s: signature format error\n"), identifier);
 			return -1;
 		}
 

@@ -1,7 +1,7 @@
 /*
  *  be_local.c : backend for the local database
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -47,9 +47,9 @@
 /* local database format version */
 size_t ALPM_LOCAL_DB_VERSION = 9;
 
-static int local_db_read(alpm_pkg_t *info, alpm_dbinfrq_t inforeq);
+static int local_db_read(alpm_pkg_t *info, int inforeq);
 
-#define LAZY_LOAD(info, errret) \
+#define LAZY_LOAD(info) \
 	do { \
 		if(!(pkg->infolevel & info)) { \
 			local_db_read(pkg, info); \
@@ -65,121 +65,121 @@ static int local_db_read(alpm_pkg_t *info, alpm_dbinfrq_t inforeq);
 
 static const char *_cache_get_base(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, NULL);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->base;
 }
 
 static const char *_cache_get_desc(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, NULL);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->desc;
 }
 
 static const char *_cache_get_url(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, NULL);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->url;
 }
 
 static alpm_time_t _cache_get_builddate(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, 0);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->builddate;
 }
 
 static alpm_time_t _cache_get_installdate(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, 0);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->installdate;
 }
 
 static const char *_cache_get_packager(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, NULL);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->packager;
 }
 
 static const char *_cache_get_arch(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, NULL);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->arch;
 }
 
 static off_t _cache_get_isize(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, -1);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->isize;
 }
 
 static alpm_pkgreason_t _cache_get_reason(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, -1);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->reason;
 }
 
-static alpm_pkgvalidation_t _cache_get_validation(alpm_pkg_t *pkg)
+static int _cache_get_validation(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, -1);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->validation;
 }
 
 static alpm_list_t *_cache_get_licenses(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, NULL);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->licenses;
 }
 
 static alpm_list_t *_cache_get_groups(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, NULL);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->groups;
 }
 
 static int _cache_has_scriptlet(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_SCRIPTLET, NULL);
+	LAZY_LOAD(INFRQ_SCRIPTLET);
 	return pkg->scriptlet;
 }
 
 static alpm_list_t *_cache_get_depends(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, NULL);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->depends;
 }
 
 static alpm_list_t *_cache_get_optdepends(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, NULL);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->optdepends;
 }
 
 static alpm_list_t *_cache_get_conflicts(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, NULL);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->conflicts;
 }
 
 static alpm_list_t *_cache_get_provides(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, NULL);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->provides;
 }
 
 static alpm_list_t *_cache_get_replaces(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_DESC, NULL);
+	LAZY_LOAD(INFRQ_DESC);
 	return pkg->replaces;
 }
 
 static alpm_filelist_t *_cache_get_files(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_FILES, NULL);
+	LAZY_LOAD(INFRQ_FILES);
 	return &(pkg->files);
 }
 
 static alpm_list_t *_cache_get_backup(alpm_pkg_t *pkg)
 {
-	LAZY_LOAD(INFRQ_FILES, NULL);
+	LAZY_LOAD(INFRQ_FILES);
 	return pkg->backup;
 }
 
@@ -501,7 +501,7 @@ version_error:
 static int local_db_populate(alpm_db_t *db)
 {
 	size_t est_count;
-	int count = 0;
+	size_t count = 0;
 	struct stat buf;
 	struct dirent *ent = NULL;
 	const char *dbpath;
@@ -607,12 +607,12 @@ static int local_db_populate(alpm_db_t *db)
 
 	closedir(dbdir);
 	if(count > 0) {
-		db->pkgcache->list = alpm_list_msort(db->pkgcache->list, (size_t)count, _alpm_pkg_cmp);
+		db->pkgcache->list = alpm_list_msort(db->pkgcache->list, count, _alpm_pkg_cmp);
 	}
-	_alpm_log(db->handle, ALPM_LOG_DEBUG, "added %d packages to package cache for db '%s'\n",
+	_alpm_log(db->handle, ALPM_LOG_DEBUG, "added %zu packages to package cache for db '%s'\n",
 			count, db->treename);
 
-	return count;
+	return 0;
 }
 
 /* Note: the return value must be freed by the caller */
@@ -660,7 +660,7 @@ char *_alpm_local_db_pkgpath(alpm_db_t *db, alpm_pkg_t *info,
 	f = alpm_list_add(f, alpm_dep_from_string(line)); \
 } while(1) /* note the while(1) and not (0) */
 
-static int local_db_read(alpm_pkg_t *info, alpm_dbinfrq_t inforeq)
+static int local_db_read(alpm_pkg_t *info, int inforeq)
 {
 	FILE *fp = NULL;
 	char line[1024];
@@ -800,25 +800,36 @@ static int local_db_read(alpm_pkg_t *info, alpm_dbinfrq_t inforeq)
 						(len = _alpm_strip_newline(line, 0))) {
 					if(!_alpm_greedy_grow((void **)&files, &files_size,
 								(files_count ? (files_count + 1) * sizeof(alpm_file_t) : 8 * sizeof(alpm_file_t)))) {
-						goto error;
+						goto nomem;
 					}
 					/* since we know the length of the file string already,
 					 * we can do malloc + memcpy rather than strdup */
 					len += 1;
-					MALLOC(files[files_count].name, len, goto error);
+					MALLOC(files[files_count].name, len, goto nomem);
 					memcpy(files[files_count].name, line, len);
 					files_count++;
 				}
 				/* attempt to hand back any memory we don't need */
 				if(files_count > 0) {
-					files = realloc(files, sizeof(alpm_file_t) * files_count);
-					/* make sure the list is sorted */
-					qsort(files, files_count, sizeof(alpm_file_t), _alpm_files_cmp);
+					alpm_file_t *newfiles;
+
+					newfiles = realloc(files, sizeof(alpm_file_t) * files_count);
+					if(newfiles != NULL) {
+						files = newfiles;
+					}
 				} else {
 					FREE(files);
 				}
 				info->files.count = files_count;
 				info->files.files = files;
+				_alpm_filelist_sort(&info->files);
+				continue;
+nomem:
+				while(files_count > 0) {
+					FREE(files[--files_count].name);
+				}
+				FREE(files);
+				goto error;
 			} else if(strcmp(line, "%BACKUP%") == 0) {
 				while(safe_fgets(line, sizeof(line), fp) && _alpm_strip_newline(line, 0)) {
 					alpm_backup_t *backup;
@@ -897,7 +908,7 @@ static void write_deps(FILE *fp, const char *header, alpm_list_t *deplist)
 	fputc('\n', fp);
 }
 
-int _alpm_local_db_write(alpm_db_t *db, alpm_pkg_t *info, alpm_dbinfrq_t inforeq)
+int _alpm_local_db_write(alpm_db_t *db, alpm_pkg_t *info, int inforeq)
 {
 	FILE *fp = NULL;
 	mode_t oldmask;

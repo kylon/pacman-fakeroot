@@ -1,7 +1,7 @@
 /*
  *  conflict.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2006 by David Kimpe <dnaku@frugalware.org>
@@ -278,12 +278,15 @@ static alpm_list_t *add_fileconflict(alpm_handle_t *handle,
 
 	STRDUP(conflict->target, pkg1->name, goto error);
 	STRDUP(conflict->file, filestr, goto error);
-	if(pkg2) {
-		conflict->type = ALPM_FILECONFLICT_TARGET;
-		STRDUP(conflict->ctarget, pkg2->name, goto error);
-	} else {
+	if(!pkg2) {
 		conflict->type = ALPM_FILECONFLICT_FILESYSTEM;
 		STRDUP(conflict->ctarget, "", goto error);
+	} else if(pkg2->origin == ALPM_PKG_FROM_LOCALDB) {
+		conflict->type = ALPM_FILECONFLICT_FILESYSTEM;
+		STRDUP(conflict->ctarget, pkg2->name, goto error);
+	} else {
+		conflict->type = ALPM_FILECONFLICT_TARGET;
+		STRDUP(conflict->ctarget, pkg2->name, goto error);
 	}
 
 	conflicts = alpm_list_add(conflicts, conflict);
@@ -385,6 +388,23 @@ static alpm_list_t *alpm_db_find_file_owners(alpm_db_t* db, const char *path)
 	return owners;
 }
 
+static alpm_pkg_t *_alpm_find_file_owner(alpm_handle_t *handle, const char *path)
+{
+	alpm_list_t *i;
+	for(i = alpm_db_get_pkgcache(handle->db_local); i; i = i->next) {
+		if(alpm_filelist_contains(alpm_pkg_get_files(i->data), path)) {
+			return i->data;
+		}
+	}
+	return NULL;
+}
+
+static int _alpm_can_overwrite_file(alpm_handle_t *handle, const char *path)
+{
+	return handle->trans->flags & ALPM_TRANS_FLAG_FORCE
+		|| _alpm_fnmatch_patterns(handle->overwrite_files, path) == 0;
+}
+
 /**
  * @brief Find file conflicts that may occur during the transaction.
  *
@@ -419,7 +439,7 @@ alpm_list_t *_alpm_db_find_fileconflicts(alpm_handle_t *handle,
 	for(current = 0, i = upgrade; i; i = i->next, current++) {
 		alpm_pkg_t *p1 = i->data;
 		alpm_list_t *j;
-		alpm_list_t *tmpfiles = NULL;
+		alpm_list_t *newfiles = NULL;
 		alpm_pkg_t *dbpkg;
 
 		int percent = (current * 100) / numtargs;
@@ -448,8 +468,8 @@ alpm_list_t *_alpm_db_find_fileconflicts(alpm_handle_t *handle,
 					/* can skip file-file conflicts when forced *
 					 * checking presence in p2_files detects dir-file or file-dir
 					 * conflicts as the path from p1 is returned */
-					if((handle->trans->flags & ALPM_TRANS_FLAG_FORCE) &&
-							alpm_filelist_contains(p2_files, filename)) {
+					if(_alpm_can_overwrite_file(handle, filename)
+							&& alpm_filelist_contains(p2_files, filename)) {
 						_alpm_log(handle, ALPM_LOG_DEBUG,
 							"%s exists in both '%s' and '%s'\n", filename,
 							p1->name, p2->name);
@@ -483,18 +503,18 @@ alpm_list_t *_alpm_db_find_fileconflicts(alpm_handle_t *handle,
 		 * be freed. */
 		if(dbpkg) {
 			/* older ver of package currently installed */
-			tmpfiles = _alpm_filelist_difference(alpm_pkg_get_files(p1),
+			newfiles = _alpm_filelist_difference(alpm_pkg_get_files(p1),
 					alpm_pkg_get_files(dbpkg));
 		} else {
 			/* no version of package currently installed */
 			alpm_filelist_t *fl = alpm_pkg_get_files(p1);
 			size_t filenum;
 			for(filenum = 0; filenum < fl->count; filenum++) {
-				tmpfiles = alpm_list_add(tmpfiles, fl->files[filenum].name);
+				newfiles = alpm_list_add(newfiles, fl->files[filenum].name);
 			}
 		}
 
-		for(j = tmpfiles; j; j = j->next) {
+		for(j = newfiles; j; j = j->next) {
 			const char *filestr = j->data;
 			const char *relative_path;
 			alpm_list_t *k;
@@ -503,6 +523,7 @@ alpm_list_t *_alpm_db_find_fileconflicts(alpm_handle_t *handle,
 			struct stat lsbuf;
 			char path[PATH_MAX];
 			size_t pathlen;
+			int pfile_isdir;
 
 			pathlen = snprintf(path, PATH_MAX, "%s%s", handle->root, filestr);
 			relative_path = path + rootlen;
@@ -514,7 +535,8 @@ alpm_list_t *_alpm_db_find_fileconflicts(alpm_handle_t *handle,
 
 			_alpm_log(handle, ALPM_LOG_DEBUG, "checking possible conflict: %s\n", path);
 
-			if(path[pathlen - 1] == '/') {
+			pfile_isdir = path[pathlen - 1] == '/';
+			if(pfile_isdir) {
 				if(S_ISDIR(lsbuf.st_mode)) {
 					_alpm_log(handle, ALPM_LOG_DEBUG, "file is a directory, not a conflict\n");
 					continue;
@@ -551,6 +573,18 @@ alpm_list_t *_alpm_db_find_fileconflicts(alpm_handle_t *handle,
 					_alpm_log(handle, ALPM_LOG_DEBUG,
 							"local file will be removed, not a conflict\n");
 					resolved_conflict = 1;
+					if(pfile_isdir) {
+						/* go ahead and skip any files inside filestr as they will
+						 * necessarily be resolved by replacing the file with a dir
+						 * NOTE: afterward, j will point to the last file inside filestr */
+						size_t fslen = strlen(filestr);
+						for( ; j->next; j = j->next) {
+							const char *filestr2 = j->next->data;
+							if(strncmp(filestr, filestr2, fslen) != 0) {
+								break;
+							}
+						}
+					}
 				}
 			}
 
@@ -640,25 +674,26 @@ alpm_list_t *_alpm_db_find_fileconflicts(alpm_handle_t *handle,
 			}
 
 			/* skip file-file conflicts when being forced */
-			if((handle->trans->flags & ALPM_TRANS_FLAG_FORCE) &&
-					!S_ISDIR(lsbuf.st_mode)) {
+			if(!S_ISDIR(lsbuf.st_mode)
+					&& _alpm_can_overwrite_file(handle, filestr)) {
 				_alpm_log(handle, ALPM_LOG_DEBUG,
 							"conflict with file on filesystem being forced\n");
 				resolved_conflict = 1;
 			}
 
 			if(!resolved_conflict) {
-				conflicts = add_fileconflict(handle, conflicts, path, p1, NULL);
+				conflicts = add_fileconflict(handle, conflicts, path, p1,
+						_alpm_find_file_owner(handle, relative_path));
 				if(handle->pm_errno == ALPM_ERR_MEMORY) {
 					alpm_list_free_inner(conflicts,
 							(alpm_list_fn_free) alpm_conflict_free);
 					alpm_list_free(conflicts);
-					alpm_list_free(tmpfiles);
+					alpm_list_free(newfiles);
 					return NULL;
 				}
 			}
 		}
-		alpm_list_free(tmpfiles);
+		alpm_list_free(newfiles);
 	}
 	PROGRESS(handle, ALPM_PROGRESS_CONFLICTS_START, "", 100,
 			numtargs, current);

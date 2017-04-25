@@ -2,7 +2,7 @@
 #
 #   pkgname.sh - Check the 'pkgname' variable conforms to requirements.
 #
-#   Copyright (c) 2014-2016 Pacman Development Team <pacman-dev@archlinux.org>
+#   Copyright (c) 2014-2017 Pacman Development Team <pacman-dev@archlinux.org>
 #
 #   This program is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -31,6 +31,11 @@ lint_pkgbuild_functions+=('lint_pkgname')
 
 lint_pkgname() {
 	local ret=0 i
+
+	if [[ -z ${pkgname[@]} ]]; then
+		error "$(gettext "%s is not allowed to be empty.")" "pkgname"
+		return 1
+	fi
 
 	for i in "${pkgname[@]}"; do
 		if [[ -z $i ]]; then

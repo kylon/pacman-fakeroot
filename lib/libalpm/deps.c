@@ -1,7 +1,7 @@
 /*
  *  deps.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005, 2006 by Miklos Vajna <vmiklos@frugalware.org>
@@ -152,10 +152,46 @@ static alpm_list_t *dep_graph_init(alpm_handle_t *handle,
 			j = next;
 		}
 
-		vertex_i->childptr = vertex_i->children;
+		vertex_i->iterator = vertex_i->children;
 	}
 	alpm_list_free(localpkgs);
 	return vertices;
+}
+
+static void _alpm_warn_dep_cycle(alpm_handle_t *handle, alpm_list_t *targets,
+		alpm_graph_t *ancestor, alpm_graph_t *vertex, int reverse)
+{
+	/* vertex depends on and is required by ancestor */
+	if(!alpm_list_find_ptr(targets, vertex->data)) {
+		/* child is not part of the transaction, not a problem */
+		return;
+	}
+
+	/* find the nearest ancestor that's part of the transaction */
+	while(ancestor) {
+		if(alpm_list_find_ptr(targets, ancestor->data)) {
+			break;
+		}
+		ancestor = ancestor->parent;
+	}
+
+	if(!ancestor || ancestor == vertex) {
+		/* no transaction package in our ancestry or the package has
+		 * a circular dependency with itself, not a problem */
+	} else {
+		alpm_pkg_t *ancestorpkg = ancestor->data;
+		alpm_pkg_t *childpkg = vertex->data;
+		_alpm_log(handle, ALPM_LOG_WARNING, _("dependency cycle detected:\n"));
+		if(reverse) {
+			_alpm_log(handle, ALPM_LOG_WARNING,
+					_("%s will be removed after its %s dependency\n"),
+					ancestorpkg->name, childpkg->name);
+		} else {
+			_alpm_log(handle, ALPM_LOG_WARNING,
+					_("%s will be installed before its %s dependency\n"),
+					ancestorpkg->name, childpkg->name);
+		}
+	}
 }
 
 /* Re-order a list of target packages with respect to their dependencies.
@@ -179,7 +215,7 @@ alpm_list_t *_alpm_sortbydeps(alpm_handle_t *handle,
 {
 	alpm_list_t *newtargs = NULL;
 	alpm_list_t *vertices = NULL;
-	alpm_list_t *vptr;
+	alpm_list_t *i;
 	alpm_graph_t *vertex;
 
 	if(targets == NULL) {
@@ -190,67 +226,35 @@ alpm_list_t *_alpm_sortbydeps(alpm_handle_t *handle,
 
 	vertices = dep_graph_init(handle, targets, ignore);
 
-	vptr = vertices;
+	i = vertices;
 	vertex = vertices->data;
-	while(vptr) {
+	while(i) {
 		/* mark that we touched the vertex */
-		vertex->state = -1;
-		int found = 0;
-		while(vertex->childptr && !found) {
-			alpm_graph_t *nextchild = vertex->childptr->data;
-			vertex->childptr = vertex->childptr->next;
-			if(nextchild->state == 0) {
-				found = 1;
+		vertex->state = ALPM_GRAPH_STATE_PROCESSING;
+		int switched_to_child = 0;
+		while(vertex->iterator && !switched_to_child) {
+			alpm_graph_t *nextchild = vertex->iterator->data;
+			vertex->iterator = vertex->iterator->next;
+			if(nextchild->state == ALPM_GRAPH_STATE_UNPROCESSED) {
+				switched_to_child = 1;
 				nextchild->parent = vertex;
 				vertex = nextchild;
-			} else if(nextchild->state == -1) {
-				/* child is an ancestor of vertex */
-				alpm_graph_t *transvertex = vertex;
-
-				if(!alpm_list_find_ptr(targets, nextchild->data)) {
-					/* child is not part of the transaction, not a problem */
-					continue;
-				}
-
-				/* find the nearest parent that's part of the transaction */
-				while(transvertex) {
-					if(alpm_list_find_ptr(targets, transvertex->data)) {
-						break;
-					}
-					transvertex = transvertex->parent;
-				}
-
-				if(!transvertex || transvertex == nextchild) {
-					/* no transaction package in our ancestry or the package has
-					 * a circular dependency with itself, not a problem */
-				} else {
-					alpm_pkg_t *transpkg = transvertex->data;
-					alpm_pkg_t *childpkg = nextchild->data;
-					_alpm_log(handle, ALPM_LOG_WARNING, _("dependency cycle detected:\n"));
-					if(reverse) {
-						_alpm_log(handle, ALPM_LOG_WARNING,
-								_("%s will be removed after its %s dependency\n"),
-								transpkg->name, childpkg->name);
-					} else {
-						_alpm_log(handle, ALPM_LOG_WARNING,
-								_("%s will be installed before its %s dependency\n"),
-								transpkg->name, childpkg->name);
-					}
-				}
+			} else if(nextchild->state == ALPM_GRAPH_STATE_PROCESSING) {
+				_alpm_warn_dep_cycle(handle, targets, vertex, nextchild, reverse);
 			}
 		}
-		if(!found) {
+		if(!switched_to_child) {
 			if(alpm_list_find_ptr(targets, vertex->data)) {
 				newtargs = alpm_list_add(newtargs, vertex->data);
 			}
 			/* mark that we've left this vertex */
-			vertex->state = 1;
+			vertex->state = ALPM_GRAPH_STATE_PROCESSED;
 			vertex = vertex->parent;
 			if(!vertex) {
 				/* top level vertex reached, move to the next unprocessed vertex */
-				for( vptr = vptr->next; vptr; vptr = vptr->next) {
-					vertex = vptr->data;
-					if(vertex->state == 0) {
+				for(i = i->next; i; i = i->next) {
+					vertex = i->data;
+					if(vertex->state == ALPM_GRAPH_STATE_UNPROCESSED) {
 						break;
 					}
 				}
@@ -551,44 +555,29 @@ error:
 	return NULL;
 }
 
-/* These parameters are messy. We check if this package, given a list of
- * targets and a db is safe to remove. We do NOT remove it if it is in the
- * target list, or if the package was explicitly installed and
- * include_explicit == 0 */
-static int can_remove_package(alpm_db_t *db, alpm_pkg_t *pkg,
-		alpm_list_t *targets, int include_explicit)
+/** Move package dependencies from one list to another
+ * @param from list to scan for dependencies
+ * @param to list to add dependencies to
+ * @param pkg package whose dependencies are moved
+ * @param explicit if 0, explicitly installed packages are not moved
+ */
+static void _alpm_select_depends(alpm_list_t **from, alpm_list_t **to,
+		alpm_pkg_t *pkg, int explicit)
 {
-	alpm_list_t *i;
-
-	if(alpm_pkg_find(targets, pkg->name)) {
-		return 0;
+	alpm_list_t *i, *next;
+	if(!alpm_pkg_get_depends(pkg)) {
+		return;
 	}
-
-	if(!include_explicit) {
-		/* see if it was explicitly installed */
-		if(alpm_pkg_get_reason(pkg) == ALPM_PKG_REASON_EXPLICIT) {
-			_alpm_log(db->handle, ALPM_LOG_DEBUG,
-					"excluding %s -- explicitly installed\n", pkg->name);
-			return 0;
+	for(i = *from; i; i = next) {
+		alpm_pkg_t *deppkg = i->data;
+		next = i->next;
+		if((explicit || alpm_pkg_get_reason(deppkg) != ALPM_PKG_REASON_EXPLICIT)
+				&& _alpm_pkg_depends_on(pkg, deppkg)) {
+			*to = alpm_list_add(*to, deppkg);
+			*from = alpm_list_remove_item(*from, i);
+			free(i);
 		}
 	}
-
-	/* TODO: checkdeps could be used here, it handles multiple providers
-	 * better, but that also makes it slower.
-	 * Also this would require to first add the package to the targets list,
-	 * then call checkdeps with it, then remove the package from the targets list
-	 * if checkdeps detected it would break something */
-
-	/* see if other packages need it */
-	for(i = _alpm_db_get_pkgcache(db); i; i = i->next) {
-		alpm_pkg_t *lpkg = i->data;
-		if(_alpm_pkg_depends_on(lpkg, pkg) && !alpm_pkg_find(targets, lpkg->name)) {
-			return 0;
-		}
-	}
-
-	/* it's ok to remove */
-	return 1;
 }
 
 /**
@@ -604,31 +593,46 @@ static int can_remove_package(alpm_db_t *db, alpm_pkg_t *pkg,
  */
 int _alpm_recursedeps(alpm_db_t *db, alpm_list_t **targs, int include_explicit)
 {
-	alpm_list_t *i, *j;
+	alpm_list_t *i, *keep, *rem = NULL;
 
 	if(db == NULL || targs == NULL) {
 		return -1;
 	}
 
+	keep = alpm_list_copy(_alpm_db_get_pkgcache(db));
 	for(i = *targs; i; i = i->next) {
-		alpm_pkg_t *pkg = i->data;
-		for(j = _alpm_db_get_pkgcache(db); j; j = j->next) {
-			alpm_pkg_t *deppkg = j->data;
-			if(_alpm_pkg_depends_on(pkg, deppkg)
-					&& can_remove_package(db, deppkg, *targs, include_explicit)) {
-				alpm_pkg_t *copy = NULL;
-				_alpm_log(db->handle, ALPM_LOG_DEBUG, "adding '%s' to the targets\n",
-						deppkg->name);
-				/* add it to the target list */
-				if(_alpm_pkg_dup(deppkg, &copy)) {
-					/* we return memory on "non-fatal" error in _alpm_pkg_dup */
-					_alpm_pkg_free(copy);
-					return -1;
-				}
-				*targs = alpm_list_add(*targs, copy);
-			}
-		}
+		keep = alpm_list_remove(keep, i->data, _alpm_pkg_cmp, NULL);
 	}
+
+	/* recursively select all dependencies for removal */
+	for(i = *targs; i; i = i->next) {
+		_alpm_select_depends(&keep, &rem, i->data, include_explicit);
+	}
+	for(i = rem; i; i = i->next) {
+		_alpm_select_depends(&keep, &rem, i->data, include_explicit);
+	}
+
+	/* recursively select any still needed packages to keep */
+	for(i = keep; i && rem; i = i->next) {
+		_alpm_select_depends(&rem, &keep, i->data, 1);
+	}
+	alpm_list_free(keep);
+
+	/* copy selected packages into the target list */
+	for(i = rem; i; i = i->next) {
+		alpm_pkg_t *pkg = i->data, *copy = NULL;
+		_alpm_log(db->handle, ALPM_LOG_DEBUG,
+				"adding '%s' to the targets\n", pkg->name);
+		if(_alpm_pkg_dup(pkg, &copy)) {
+			/* we return memory on "non-fatal" error in _alpm_pkg_dup */
+			_alpm_pkg_free(copy);
+			alpm_list_free(rem);
+			return -1;
+		}
+		*targs = alpm_list_add(*targs, copy);
+	}
+	alpm_list_free(rem);
+
 	return 0;
 }
 

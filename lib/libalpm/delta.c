@@ -1,7 +1,7 @@
 /*
  *  delta.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2007-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -71,7 +71,7 @@ static alpm_list_t *graph_init(alpm_list_t *deltas, int reverse)
 				v_i->children = alpm_list_add(v_i->children, v_j);
 			}
 		}
-		v_i->childptr = v_i->children;
+		v_i->iterator = v_i->children;
 	}
 	return vertices;
 }
@@ -130,7 +130,7 @@ static void dijkstra(alpm_list_t *vertices)
 		for(i = vertices; i; i = i->next) {
 			alpm_graph_t *v_i = i->data;
 
-			if(v_i->state == -1) {
+			if(v_i->state == ALPM_GRAPH_STATE_PROCESSING) {
 				continue;
 			}
 
@@ -142,18 +142,18 @@ static void dijkstra(alpm_list_t *vertices)
 			break;
 		}
 
-		v->state = -1;
+		v->state = ALPM_GRAPH_STATE_PROCESSING;
 
-		v->childptr = v->children;
-		while(v->childptr) {
-			alpm_graph_t *v_c = v->childptr->data;
+		v->iterator = v->children;
+		while(v->iterator) {
+			alpm_graph_t *v_c = v->iterator->data;
 			alpm_delta_t *d_c = v_c->data;
 			if(v_c->weight > v->weight + d_c->download_size) {
 				v_c->weight = v->weight + d_c->download_size;
 				v_c->parent = v;
 			}
 
-			v->childptr = (v->childptr)->next;
+			v->iterator = (v->iterator)->next;
 
 		}
 	}

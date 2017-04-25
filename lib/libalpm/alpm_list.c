@@ -1,7 +1,7 @@
 /*
  *  alpm_list.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -129,6 +129,26 @@ alpm_list_t SYMEXPORT *alpm_list_append(alpm_list_t **list, void *data)
 	}
 
 	return ptr;
+}
+
+/**
+ * @brief Duplicate and append a string to a list.
+ *
+ * @param list the list to append to
+ * @param data the string to duplicate and append
+ *
+ * @return the newly added item
+ */
+alpm_list_t SYMEXPORT *alpm_list_append_strdup(alpm_list_t **list, const char *data)
+{
+	alpm_list_t *ret;
+	char *dup;
+	if((dup = strdup(data)) && (ret = alpm_list_append(list, dup))) {
+		return ret;
+	} else {
+		free(dup);
+		return NULL;
+	}
 }
 
 /**

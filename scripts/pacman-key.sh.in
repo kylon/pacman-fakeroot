@@ -4,7 +4,7 @@
 #                Based on apt-key, from Debian
 #   @configure_input@
 #
-#   Copyright (c) 2010-2016 Pacman Development Team <pacman-dev@archlinux.org>
+#   Copyright (c) 2010-2017 Pacman Development Team <pacman-dev@archlinux.org>
 #
 #   This program is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -25,6 +25,11 @@ export TEXTDOMAIN='pacman-scripts'
 export TEXTDOMAINDIR='@localedir@'
 
 declare -r myver="@PACKAGE_VERSION@"
+
+LIBRARY=${LIBRARY:-'@libmakepkgdir@'}
+
+# Import parseopts.sh
+source "$LIBRARY"/util/parseopts.sh
 
 # Options
 ADD=0
@@ -49,8 +54,6 @@ VERIFY=0
 DEFAULT_KEYSERVER='hkp://pool.sks-keyservers.net'
 
 m4_include(library/output_format.sh)
-
-m4_include(library/parseopts.sh)
 
 usage() {
 	printf "pacman-key (pacman) %s\n" ${myver}
@@ -92,7 +95,7 @@ usage() {
 version() {
 	printf "pacman-key (pacman) %s\n" "${myver}"
 	printf -- "$(gettext "\
-Copyright (c) 2010-2016 Pacman Development Team <pacman-dev@archlinux.org>.\n\
+Copyright (c) 2010-2017 Pacman Development Team <pacman-dev@archlinux.org>.\n\
 This is free software; see the source for copying conditions.\n\
 There is NO WARRANTY, to the extent permitted by law.\n")"
 }
@@ -483,6 +486,10 @@ verify_sig() {
 	local ret=0
 	for sig; do
 		msg "Checking %s..." "$sig"
+		if grep -q 'BEGIN PGP SIGNATURE' "$sig"; then
+			error "$(gettext "Cannot use armored signatures for packages: %s")" "$sig"
+			return 1
+		fi
 		if ! "${GPG_PACMAN[@]}" --status-fd 1 --verify "$sig" | grep -qE '^\[GNUPG:\] TRUST_(FULLY|ULTIMATE).*$'; then
 			error "$(gettext "The signature identified by %s could not be verified.")" "$sig"
 			ret=1

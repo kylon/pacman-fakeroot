@@ -1,7 +1,7 @@
 /*
  *  ini.h
  *
- *  Copyright (c) 2013-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2013-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -17,14 +17,14 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _PM_INI_H
-#define _PM_INI_H
+#ifndef PM_INI_H
+#define PM_INI_H
 
 typedef int (ini_parser_fn)(const char *file, int line, const char *section,
 		char *key, char *value, void *data);
 
 int parse_ini(const char *file, ini_parser_fn cb, void *data);
 
-#endif /* _PM_CONF_H */
+#endif /* PM_INI_H */
 
 /* vim: set noet: */

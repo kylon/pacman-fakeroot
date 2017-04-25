@@ -1,7 +1,7 @@
 /*
  *  alpm.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005 by Christian Hamar <krics@linuxforum.hu>
@@ -55,8 +55,7 @@ alpm_handle_t SYMEXPORT *alpm_initialize(const char *root, const char *dbpath,
 	alpm_handle_t *myhandle = _alpm_handle_new();
 
 	if(myhandle == NULL) {
-		myerr = ALPM_ERR_MEMORY;
-		goto cleanup;
+		goto nomem;
 	}
 	if((myerr = _alpm_set_directory_option(root, &(myhandle->root), 1))) {
 		goto cleanup;
@@ -68,15 +67,15 @@ alpm_handle_t SYMEXPORT *alpm_initialize(const char *root, const char *dbpath,
 	/* to contatenate myhandle->root (ends with a slash) with SYSHOOKDIR (starts
 	 * with a slash) correctly, we skip SYSHOOKDIR[0]; the regular +1 therefore
 	 * disappears from the allocation */
-	MALLOC(hookdir, strlen(myhandle->root) + strlen(SYSHOOKDIR), goto cleanup);
+	MALLOC(hookdir, strlen(myhandle->root) + strlen(SYSHOOKDIR), goto nomem);
 	sprintf(hookdir, "%s%s", myhandle->root, SYSHOOKDIR + 1);
 	myhandle->hookdirs = alpm_list_add(NULL, hookdir);
 
 	/* set default database extension */
-	STRDUP(myhandle->dbext, ".db", goto cleanup);
+	STRDUP(myhandle->dbext, ".db", goto nomem);
 
 	lockfilelen = strlen(myhandle->dbpath) + strlen(lf) + 1;
-	myhandle->lockfile = calloc(lockfilelen, sizeof(char));
+	MALLOC(myhandle->lockfile, lockfilelen, goto nomem);
 	snprintf(myhandle->lockfile, lockfilelen, "%s%s", myhandle->dbpath, lf);
 
 	if(_alpm_db_register_local(myhandle) == NULL) {
@@ -90,9 +89,11 @@ alpm_handle_t SYMEXPORT *alpm_initialize(const char *root, const char *dbpath,
 
 	return myhandle;
 
+nomem:
+	myerr = ALPM_ERR_MEMORY;
 cleanup:
 	_alpm_handle_free(myhandle);
-	if(err && myerr) {
+	if(err) {
 		*err = myerr;
 	}
 	return NULL;
@@ -151,7 +152,7 @@ const char SYMEXPORT *alpm_version(void)
 /** Get the capabilities of the library.
  * @return a bitmask of the capabilities
  * */
-enum alpm_caps SYMEXPORT alpm_capabilities(void)
+int SYMEXPORT alpm_capabilities(void)
 {
 	return 0
 #ifdef ENABLE_NLS

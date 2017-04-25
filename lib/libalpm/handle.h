@@ -1,7 +1,7 @@
 /*
  *  handle.h
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -17,8 +17,8 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _ALPM_HANDLE_H
-#define _ALPM_HANDLE_H
+#ifndef ALPM_HANDLE_H
+#define ALPM_HANDLE_H
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -60,6 +60,7 @@ struct __alpm_handle_t {
 #ifdef HAVE_LIBCURL
 	/* libcurl handle */
 	CURL *curl;             /* reusable curl_easy handle */
+	unsigned short disable_dl_timeout;
 #endif
 
 #ifdef HAVE_LIBGPGME
@@ -83,6 +84,7 @@ struct __alpm_handle_t {
 	char *gpgdir;            /* Directory where GnuPG files are stored */
 	alpm_list_t *cachedirs;  /* Paths to pacman cache directories */
 	alpm_list_t *hookdirs;   /* Paths to hook directories */
+	alpm_list_t *overwrite_files; /* Paths that may be overwritten */
 
 	/* package lists */
 	alpm_list_t *noupgrade;   /* List of packages NOT to be upgraded */
@@ -97,10 +99,10 @@ struct __alpm_handle_t {
 	int usesyslog;           /* Use syslog instead of logfile? */ /* TODO move to frontend */
 	int checkspace;          /* Check disk space before installing */
 	char *dbext;             /* Sync DB extension */
-	alpm_siglevel_t siglevel;   /* Default signature verification level */
-	alpm_siglevel_t localfilesiglevel;  /* Signature verification level for local file
+	int siglevel;            /* Default signature verification level */
+	int localfilesiglevel;   /* Signature verification level for local file
 	                                       upgrade operations */
-	alpm_siglevel_t remotefilesiglevel; /* Signature verification level for remote file
+	int remotefilesiglevel;  /* Signature verification level for remote file
 	                                       upgrade operations */
 
 	/* error code */
@@ -123,6 +125,6 @@ int _alpm_handle_unlock(alpm_handle_t *handle);
 alpm_errno_t _alpm_set_directory_option(const char *value,
 		char **storage, int must_exist);
 
-#endif /* _ALPM_HANDLE_H */
+#endif /* ALPM_HANDLE_H */
 
 /* vim: set noet: */

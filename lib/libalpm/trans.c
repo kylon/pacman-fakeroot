@@ -1,7 +1,7 @@
 /*
  *  trans.c
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *  Copyright (c) 2005 by Aurelien Foret <orelien@chez.com>
  *  Copyright (c) 2005 by Christian Hamar <krics@linuxforum.hu>
@@ -48,7 +48,7 @@
  */
 
 /** Initialize the transaction. */
-int SYMEXPORT alpm_trans_init(alpm_handle_t *handle, alpm_transflag_t flags)
+int SYMEXPORT alpm_trans_init(alpm_handle_t *handle, int flags)
 {
 	alpm_trans_t *trans;
 
@@ -305,6 +305,7 @@ void _alpm_trans_free(alpm_trans_t *trans)
 static int grep(const char *fn, const char *needle)
 {
 	FILE *fp;
+	char *ptr;
 
 	if((fp = fopen(fn, "r")) == NULL) {
 		return 0;
@@ -313,6 +314,9 @@ static int grep(const char *fn, const char *needle)
 		char line[1024];
 		if(safe_fgets(line, sizeof(line), fp) == NULL) {
 			continue;
+		}
+		if((ptr = strchr(line, '#')) != NULL) {
+			*ptr = '\0';
 		}
 		/* TODO: this will not work if the search string
 		 * ends up being split across line reads */
@@ -415,7 +419,7 @@ cleanup:
 	return retval;
 }
 
-alpm_transflag_t SYMEXPORT alpm_trans_get_flags(alpm_handle_t *handle)
+int SYMEXPORT alpm_trans_get_flags(alpm_handle_t *handle)
 {
 	/* Sanity checks */
 	CHECK_HANDLE(handle, return -1);

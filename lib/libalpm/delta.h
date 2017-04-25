@@ -1,7 +1,7 @@
 /*
  *  delta.h
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2007-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -17,8 +17,8 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _ALPM_DELTA_H
-#define _ALPM_DELTA_H
+#ifndef ALPM_DELTA_H
+#define ALPM_DELTA_H
 
 #include <sys/types.h> /* off_t */
 
@@ -30,6 +30,6 @@ alpm_delta_t *_alpm_delta_dup(const alpm_delta_t *delta);
 off_t _alpm_shortest_delta_path(alpm_handle_t *handle, alpm_list_t *deltas,
 		const char *to, alpm_list_t **path);
 
-#endif /* _ALPM_DELTA_H */
+#endif /* ALPM_DELTA_H */
 
 /* vim: set noet: */

@@ -1,7 +1,7 @@
 /*
  *  be_package.c : backend for packages
  *
- *  Copyright (c) 2006-2016 Pacman Development Team <pacman-dev@archlinux.org>
+ *  Copyright (c) 2006-2017 Pacman Development Team <pacman-dev@archlinux.org>
  *  Copyright (c) 2002-2006 by Judd Vinet <jvinet@zeroflux.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <limits.h>
 
 /* libarchive */
 #include <archive.h>
@@ -222,9 +223,11 @@ static int parse_descfile(alpm_handle_t *handle, struct archive *a, alpm_pkg_t *
 				alpm_depend_t *optdep = alpm_dep_from_string(ptr);
 				newpkg->optdepends = alpm_list_add(newpkg->optdepends, optdep);
 			} else if(strcmp(key, "makedepend") == 0) {
-				/* not used atm */
+				alpm_depend_t *makedep = alpm_dep_from_string(ptr);
+				newpkg->makedepends = alpm_list_add(newpkg->makedepends, makedep);
 			} else if(strcmp(key, "checkdepend") == 0) {
-				/* not used atm */
+				alpm_depend_t *checkdep = alpm_dep_from_string(ptr);
+				newpkg->checkdepends = alpm_list_add(newpkg->checkdepends, checkdep);
 			} else if(strcmp(key, "conflict") == 0) {
 				alpm_depend_t *conflict = alpm_dep_from_string(ptr);
 				newpkg->conflicts = alpm_list_add(newpkg->conflicts, conflict);
@@ -269,11 +272,11 @@ static int parse_descfile(alpm_handle_t *handle, struct archive *a, alpm_pkg_t *
  * @return 0 if package is fully valid, -1 and pm_errno otherwise
  */
 int _alpm_pkg_validate_internal(alpm_handle_t *handle,
-		const char *pkgfile, alpm_pkg_t *syncpkg, alpm_siglevel_t level,
-		alpm_siglist_t **sigdata, alpm_pkgvalidation_t *validation)
+		const char *pkgfile, alpm_pkg_t *syncpkg, int level,
+		alpm_siglist_t **sigdata, int *validation)
 {
 	int has_sig;
-	handle->pm_errno = 0;
+	handle->pm_errno = ALPM_ERR_OK;
 
 	if(pkgfile == NULL || strlen(pkgfile) == 0) {
 		RET_ERR(handle, ALPM_ERR_WRONG_ARGS, -1);
@@ -675,8 +678,7 @@ alpm_pkg_t *_alpm_pkg_load_internal(alpm_handle_t *handle,
 			_alpm_log(handle, ALPM_LOG_DEBUG,
 					"sorting package filelist for %s\n", pkgfile);
 
-			qsort(newpkg->files.files, newpkg->files.count,
-					sizeof(alpm_file_t), _alpm_files_cmp);
+			_alpm_filelist_sort(&newpkg->files);
 		}
 		newpkg->infolevel |= INFRQ_FILES;
 	}
@@ -695,21 +697,24 @@ error:
 	return NULL;
 }
 
+/* adopted limit from repo-add */
+#define MAX_SIGFILE_SIZE 16384
+
 static int read_sigfile(const char *sigpath, unsigned char **sig)
 {
 	struct stat st;
 	FILE *fp;
 
-	if(stat(sigpath, &st) != 0) {
-		return -1;
-	}
-
-	MALLOC(*sig, st.st_size, return -1);
-
 	if((fp = fopen(sigpath, "rb")) == NULL) {
-		free(*sig);
 		return -1;
 	}
+
+	if(fstat(fileno(fp), &st) != 0 || st.st_size > MAX_SIGFILE_SIZE) {
+		fclose(fp);
+		return -1;
+	}
+
+	MALLOC(*sig, st.st_size, fclose(fp); return -1);
 
 	if(fread(*sig, st.st_size, 1, fp) != 1) {
 		free(*sig);
@@ -722,9 +727,9 @@ static int read_sigfile(const char *sigpath, unsigned char **sig)
 }
 
 int SYMEXPORT alpm_pkg_load(alpm_handle_t *handle, const char *filename, int full,
-		alpm_siglevel_t level, alpm_pkg_t **pkg)
+		int level, alpm_pkg_t **pkg)
 {
-	alpm_pkgvalidation_t validation = 0;
+	int validation = 0;
 	char *sigpath;
 
 	CHECK_HANDLE(handle, return -1);
@@ -762,6 +767,7 @@ int SYMEXPORT alpm_pkg_load(alpm_handle_t *handle, const char *filename, int ful
 
 			if(fail) {
 				_alpm_log(handle, ALPM_LOG_ERROR, _("required key missing from keyring\n"));
+				free(sigpath);
 				return -1;
 			}
 		}
