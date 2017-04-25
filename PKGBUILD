@@ -5,7 +5,7 @@
 
 pkgname=pacman
 pkgver=5.0.1
-pkgrel=4
+pkgrel=5
 pkgdesc="A library-based package manager with dependency support"
 arch=('i686' 'x86_64')
 url="http://www.archlinux.org/pacman/"
@@ -30,7 +30,6 @@ cd ..
     --with-scriptlet-shell=/usr/bin/bash \
     --with-ldconfig=/usr/bin/ldconfig
   make V=1
-  make -C contrib 
 }
 
 check() {
@@ -40,7 +39,6 @@ check() {
 package() {
 cd ..
   make DESTDIR="$pkgdir" install
-  make DESTDIR="$pkgdir" -C contrib install
 
   # install Arch specific stuff
   install -dm755 "$pkgdir/etc"
@@ -74,7 +72,4 @@ cd ..
   for f in makepkg pacman-key; do
     ln -s pacman "$pkgdir/usr/share/bash-completion/completions/$f"
   done
-
-  install -Dm644 contrib/PKGBUILD.vim "$pkgdir/usr/share/vim/vimfiles/syntax/PKGBUILD.vim"
 }
-
