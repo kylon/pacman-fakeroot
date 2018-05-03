@@ -75,7 +75,7 @@ _makepkg() {
   COMPREPLY=()
   _get_comp_words_by_ref cur prev
   if [[ $cur = -* && ! $prev =~ ^-(-(config|help|key|version)$|\w*[Vhp]) ]]; then
-    opts=('allsource asdeps check clean cleanbuild config force geninteg help
+    opts=('allsource asdeps asroot check clean cleanbuild config force geninteg help
            holdver ignorearch install key log needed noarchive nobuild nocheck
            nocolor noconfirm nodeps noextract noprepare noprogressbar nosign
            packagelist printsrcinfo repackage rmdeps sign skipchecksums
