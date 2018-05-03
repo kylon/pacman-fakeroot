@@ -542,6 +542,7 @@ test/pacman/Makefile
 test/pacman/tests/Makefile
 test/scripts/Makefile
 test/util/Makefile
+contrib/Makefile
 Makefile
 ])
 AC_OUTPUT
