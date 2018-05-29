@@ -38,6 +38,9 @@ BUILDINFO file format.
 *pkgver*::
 	The version of the package including pkgrel and epoch.
 
+*pkgarch*::
+	The architecture of the package.
+
 *pkgbuild_sha256sum*::
 	The sha256sum in hex format of the PKGBUILD used to build the package.
 
@@ -58,10 +61,10 @@ BUILDINFO file format.
 
 *installed (array)*::
 	The installed packages at build time including the version information of
-	the package. Formatted as "$pkgname-$pkgver-$pkgrel".
+	the package. Formatted as "$pkgname-$pkgver-$pkgrel-$pkgarch".
 
 See Also
 --------
 linkman:makepkg[8], linkman:pacman[8], linkman:makepkg.conf[5]
 
-include::footer.txt[]
+include::footer.asciidoc[]

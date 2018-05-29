@@ -221,12 +221,13 @@ missing_source_file() {
 
 run_pacman() {
 	local cmd
-	if [[ $1 != -@(T|Qq) ]]; then
+	if [[ $1 != -@(T|Q)*([[:alpha:]]) ]]; then
 		cmd=("$PACMAN_PATH" "${PACMAN_OPTS[@]}" "$@")
 	else
 		cmd=("$PACMAN_PATH" "$@")
 	fi
-	if (( ! ASROOT )) && [[ $1 != -@(T|Qq|Q) ]]; then
+
+	if (( ! ASROOT )) && [[ $1 != -@(T|Q)*([[:alpha:]]) ]]; then
 		if type -p sudo >/dev/null; then
 			cmd=(sudo "${cmd[@]}")
 		else
@@ -276,7 +277,7 @@ handle_deps() {
 
 	# we might need the new system environment
 	# save our shell options and turn off extglob
-	local shellopts=$(shopt -p)
+	local shellopts=$(shopt -p extglob)
 	shopt -u extglob
 	source /etc/profile &>/dev/null
 	eval "$shellopts"
@@ -688,6 +689,8 @@ write_buildinfo() {
 	local fullver=$(get_full_version)
 	write_kv_pair "pkgver" "$fullver"
 
+	write_kv_pair "pkgarch" "$pkgarch"
+
 	local sum="$(sha256sum "${BUILDFILE}")"
 	sum=${sum%% *}
 	write_kv_pair "pkgbuild_sha256sum" $sum
@@ -698,8 +701,15 @@ write_buildinfo() {
 	write_kv_pair "buildenv" "${BUILDENV[@]}"
 	write_kv_pair "options" "${OPTIONS[@]}"
 
-	local pkglist=($(run_pacman -Q | sed "s# #-#"))
-	write_kv_pair "installed" "${pkglist[@]}"
+	local pkglist=($(run_pacman -Qq))
+	local pkginfos="$(LC_ALL=C run_pacman -Qi ${pkglist[@]})"
+	local pkginfos_parsed=($(awk -F': ' '\
+		/^Name .*/ {printf $2} \
+		/^Version .*/ {printf "-"$2} \
+		/^Architecture .*/ {print "-"$2} \
+		' <<< "${pkginfos}"))
+
+	write_kv_pair "installed" "${pkginfos_parsed[@]}"
 }
 
 # build a sorted NUL-separated list of the full contents of the current
@@ -1280,7 +1290,7 @@ while true; do
 		-h|--help)        usage; exit $E_OK ;;
 		-V|--version)     version; exit $E_OK ;;
 
-		--)               OPT_IND=0; shift; break 2;;
+		--)               OPT_IND=0; shift; break ;;
 	esac
 	shift
 done
@@ -1732,5 +1742,3 @@ fi
 msg "$(gettext "Finished making: %s")" "$pkgbase $basever ($(date +%c))"
 
 install_package && exit $E_OK || exit $E_INSTALL_FAILED
-
-# vim: set noet:

@@ -1,6 +1,3 @@
-/////
-vim:set ts=4 sw=4 syntax=asciidoc noet spell spelllang=en_us:
-/////
 makepkg.conf(5)
 ===============
 
@@ -193,8 +190,8 @@ Options
 	for details.
 
 **STRIP_SHARED=**"--strip-unneeded"::
-	Options to be used when stripping shared libraries. See linkman:strip[1]
-	for details.
+	Options to be used when stripping shared libraries or PIE executables.
+	See linkman:strip[1] for details.
 
 **STRIP_STATIC=**"--strip-debug"::
 	Options to be used when stripping static libraries. See linkman:strip[1]
@@ -269,4 +266,4 @@ See Also
 --------
 linkman:makepkg[8], linkman:pacman[8], linkman:PKGBUILD[5]
 
-include::footer.txt[]
+include::footer.asciidoc[]

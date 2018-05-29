@@ -1,6 +1,3 @@
-/////
-vim:set ts=4 sw=4 syntax=asciidoc noet spell spelllang=en_us:
-/////
 makepkg-template(1)
 ===================
 
@@ -118,4 +115,4 @@ See Also
 --------
 linkman:makepkg[8], linkman:PKGBUILD[5]
 
-include::footer.txt[]
+include::footer.asciidoc[]
