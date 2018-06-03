@@ -5,7 +5,7 @@
 
 pkgname=pacman
 pkgver=5.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc="A library-based package manager with dependency support"
 arch=('x86_64')
 url="http://www.archlinux.org/pacman/"
@@ -15,9 +15,17 @@ depends=('bash' 'glibc' 'libarchive' 'curl'
          'gpgme' 'pacman-mirrorlist' 'archlinux-keyring')
 makedepends=('asciidoc')   # roundup patch alters docs
 checkdepends=('python2' 'fakechroot')
-optdepends=('fakeroot: for makepkg usage as normal user')
+optdepends=('fakeroot: for makepkg usage as normal user perl-locale-gettext: translation support in makepkg-template')
 backup=(etc/pacman.conf etc/makepkg.conf)
 options=('strip' 'debug')
+
+prepare() {
+  cd ..
+
+  # Fix install_packages failure exit code, required by makechrootpkg
+  patch -Np1 -i pkg-config/0001-makepkg-Clear-ERR-trap-before-trying-to-restore-it.patch
+  patch -Np1 -i pkg-config/0002-makepkg-Don-t-use-parameterless-return.patch
+}
 
 build() {
   cd ..
