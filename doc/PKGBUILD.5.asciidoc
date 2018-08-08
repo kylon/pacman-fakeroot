@@ -18,9 +18,9 @@ PKGBUILD is written, the actual package is built using makepkg and installed
 with pacman.
 
 NOTE: An example PKGBUILD, useful for reference, is located in '{pkgdatadir}'
-along with other example files such as a ChangeLog and an install
-script. You can copy the provided PKGBUILD.proto file to a new package build
-directory and make customizations to suit your needs.
+along with other example files such as an install script. You can copy the
+provided PKGBUILD.proto file to a new package build directory and make
+customizations to suit your needs.
 
 
 Options and Directives
@@ -56,11 +56,13 @@ new `pkgver`.  This is most useful when used with sources from version control
 systems (see below).
 
 *pkgrel*::
-	This is the release number specific to the Arch Linux release. This
+	This is the release number specific to the distribution. This
 	allows package maintainers to make updates to the package's configure
 	flags, for example. This is typically set to '1' for each new upstream
 	software release and incremented for intermediate PKGBUILD updates. The
-	variable is not allowed to contain hyphens.
+	variable is a postive integer, with an optional subrelease level
+	specified by adding another postive integer separated by a period
+	(i.e. in the form x.y).
 
 *epoch*::
 	Used to force the package to be seen as newer than any previous versions
@@ -152,7 +154,7 @@ contain whitespace characters.
 	be skipped. To easily generate md5sums, run ``makepkg -g >> PKGBUILD''.
 	If desired, move the md5sums line to an appropriate location.
 
-*sha1sums, sha256sums, sha384sums, sha512sums (arrays)*::
+*sha1sums, sha224sums, sha256sums, sha384sums, sha512sums (arrays)*::
 	Alternative integrity checks that makepkg supports; these all behave
 	similar to the md5sums option described above. To enable use and generation
 	of these checksums, be sure to set up the `INTEGRITY_CHECK` option in
@@ -212,8 +214,9 @@ underscore and the architecture name e.g., 'checkdepends_x86_64=()'.
 	An array of packages (and accompanying reasons) that are not essential for
 	base functionality, but may be necessary to make full use of the contents
 	of this package. optdepends are currently for informational purposes only
-	and are not utilized by pacman during dependency resolution. The format
-	for specifying optdepends is:
+	and are not utilized by pacman during dependency resolution. Packages in
+	this list follow the same format as depends, with an optional description
+	appended. The format for specifying optdepends descriptions is:
 
 	optdepends=('python: for library bindings')
 +
